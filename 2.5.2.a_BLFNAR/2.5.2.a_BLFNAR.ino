@@ -1,46 +1,37 @@
 /*
-  Blink
+  BIOE 123, 2018 Winter
+  Module 2.5.2.a
+  BLFAR - Blinky light for no apparent reason
 
-  Turns an LED on for one second, then off for one second, repeatedly.
+  Make the Arduino blink at the same rate and duty cycle as measured for a
+  human heart at rest.
 
-  Most Arduinos have an on-board LED you can control. On the UNO, MEGA and ZERO
-  it is attached to digital pin 13, on MKR1000 on pin 6. LED_BUILTIN is set to
-  the correct LED pin independent of which board is used.
-  If you want to know what pin the on-board LED is connected to on your Arduino
-  model, check the Technical Specs of your board at:
-  https://www.arduino.cc/en/Main/Products
-
-  modified 8 May 2014
-  by Scott Fitzgerald
-  modified 2 Sep 2016
-  by Arturo Guadalupi
-  modified 8 Sep 2016
-  by Colby Newman
-
-  This example code is in the public domain.
-
-  http://www.arduino.cc/en/Tutorial/Blink
+  Notes
+  - The built-in LED is digital pin 13 on the MICRO, UNO, MEGA and ZERO.
+    LED_BUILTIN is set to the correct LED pin independent of which board is used.
+    See https://www.arduino.cc/en/Tutorial/Blink
 */
 
 // constants
-float duty_cycle = 0.2;
-float bpm = 64;
+int led_pin = LED_BUILTIN;
+float duty_cycle = 0.2;   // duty cycle, guessestimated
+float bpm = 64;           // heart rate at rest in beats per minute
 
 // calculations
-float period = bpm/60*1000; // in milliseconds
-float on_time = period * duty_cycle; // in milliseconds
-float off_time = period - on_time; // in milliseconds
+float period = bpm / 60.0 * 1000;     // in milliseconds
+float on_time = period * duty_cycle;  // in milliseconds
+float off_time = period - on_time;    // in milliseconds
 
 // the setup function runs once when you press reset or power the board
 void setup() {
   // initialize digital pin LED_BUILTIN as an output.
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(led_pin, OUTPUT);
 }
 
 // the loop function runs over and over again forever
 void loop() {
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(on_time);                       // wait for a second
-  digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
-  delay(off_time);                       // wait for a second
+  digitalWrite(led_pin, HIGH);    // turn the LED on (HIGH is the voltage level)
+  delay(on_time);                     // wait for time proportional to the duty cycle
+  digitalWrite(led_pin, LOW);     // turn the LED off by making the voltage LOW
+  delay(off_time);                    // wait for time proportional to period - duty cycle
 }
