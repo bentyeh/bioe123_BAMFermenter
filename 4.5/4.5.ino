@@ -19,18 +19,21 @@ const int PTred = A2;         // phototransistor for red LED
 const int pausePin = 4;       // pause button
 
 // -- CONSTANTS --
-const double temp_target = 37.0;          // degrees Celcius
+const double TEMP_TARGET = 37.0;          // temperature set point in degrees Celcius
 const int OD_DELAY = 500;                 // duration (milleseconds) to blink (PWM) LED for
                                           // phototransistor reading
 const unsigned long DEBOUNCE_DELAY = 50;  // the debounce time; increase if the output flickers
+const int PELTIER_SETPOINT = 60;
+const double PELTIER_PROP_PARAM = 0.1;
 
 // -- GLOBAL VARIABLES and FLAGS --
 int temp_set = 0;             // temperature output setting
 int stir_set = 0;             // stir setting
 int air_set = 0;              // air pump setting
 int fan_set = 0;              // fan setting
-bool print = true;            // Serial output (print) flag
+bool suppressPrompt = false;  // Serial output (print) flag
 bool update = true;           // setting update flag
+bool closedLoopControl = false;
 
 bool run_system = true;       // current system state (true = running; false = paused)
 int buttonState;              // current button reading  (LOW = pressed; HIGH = unpressed)
@@ -62,125 +65,132 @@ void setup() {
   print_settings();
 
   // clear Serial input
-  clearSerial();
+  flushSerial();
 }
 
 void loop() {
-
-  bool change_state = button_press();
-
-  if (change_state) {
+  if (button_press()) {
     run_system = !run_system;
-
-    if (run_system) {
-      Serial.println("System resumed");
-      update = true;
-    }
-    else {
+    if (!run_system) {
+      Serial.println("System paused");
       pause();
-      Serial.println("System paused");     
+      return;
+    } else {
+      Serial.println("System resumed");
     }
   }
 
-  if (run_system) {
-    run();
+  if (closedLoopControl) {
+    control_temp();
   }
-}
 
-void run() {
   byte mode;
   int value;
   int temp_raw;
   double temp_real;
 
-  if (print) {
+  if (!suppressPrompt) {
     Serial.println("----------------------");
     Serial.println("Command format: [c][#]");
     Serial.println("- c = {s: stir*, h: heat*, a: aerate*, f: fan*, t: temp, p: purpleness, d: density}");
     Serial.println("- # = {0, ..., 255}, only used by commands denoted with *; otherwise ignored");
     Serial.println("----------------------");
-    print = false;
+    suppressPrompt = true;
   }
 
-  // read from serial input
-  if (Serial.available() > 0) {
-    print = true;
-    mode = Serial.read();
-
-    switch(mode) {
-      // read commands
-      case 't':
-      case 'p':
-      case 'd':
-        // ignore any other Serial input
-        clearSerial();
-        break;
-
-      // set commands
-      case 's':
-      case 'h':
-      case 'a':
-      case 'f':
-        if (Serial.available() > 0) {
-          // next valid integer
-          value = (int) Serial.parseInt();
-          clearSerial();
-          if ((value < 0) || (value > 255)) {
-            Serial.println("[Error] Invalid input range.");
-            return;
-          } else {
-            // valid Serial input
-            update = true;
-          }
-        } else {
-          Serial.println("[Error] s, h, a, and f must be followed by an integer between 0 and 255.");
-          return;
-        }
-        break;
-      default:
-        Serial.println("[Error] Invalid character.");
-        clearSerial();
-        return;
-    }
-  } else {
-    // no Serial input received
-    print = false;
-    return;
+  if (Serial.available() == 0) {
+    return
   }
-  
+
+  suppressPrompt = false;
+  mode = Serial.read(); // read first byte (one character) from serial 
+
   switch(mode) {
     case 't':
-      temp_raw = analogRead(tempSensorPin);                         // 0 to 1023
-      temp_real = (temp_raw * 5000.0 / 1023.0) / 10.0 + 5.0 + 47.0; // convert to Fahrenheit
-      Serial.print("Temperature reading (F): ");
-      Serial.println(temp_real);
-      return;
+    case 'p':
     case 'd':
-      Serial.print("Density reading: ");
-      Serial.println(readPT(LEDred, PTred));
+      flushSerial();
+      break;
+    case 's':
+    case 'h':
+    case 'a':
+    case 'f':
+    case 'c':
+      if (Serial.available() > 0) {
+        // next valid integer
+        value = (int) Serial.parseInt();
+        flushSerial();
+        if ((value < 0) || (value > 255)) {
+          Serial.println("[Error] Invalid input range.");
+          return;
+        }
+      } else {
+        Serial.println("[Error] s, h, a, c, and f must be followed by an integer between 0 and 255.");
+        flushSerial();
+        return;
+      }
+      break;
+    default:
+      Serial.println("[Error] Invalid character.");
+      flushSerial();
+      return;
+  }
+
+  switch(mode) {
+    case 't':
+      Serial.print("Temperature reading (C): ");
+      Serial.println(get_real_temp());
       return;
     case 'p':
       Serial.print("Purpleness reading: ");
       Serial.println(readPT(LEDgreen, PTgreen));
       return;
+    case 'd':
+      Serial.print("Density reading: ");
+      Serial.println(readPT(LEDred, PTred));
+      return;
+    case 'c':
+      if (mode == 0) {
+        Serial.println("Closed Loop Temperature control off");
+        closedLoopControl = false;
+        temp_set = PELTIER_SETPOINT;
+        analogWrite(tempOutputPin, temp_set);
+      } else if (mode == 1) {
+        Serial.println("Closed Loop Temperature control on");
+        closedLoopControl = true;
+        control_temp();
+      } else {
+        Serial.println("[Error] Invalid character.");
+        return;
+      }
+      break;
     case 's':
       stir_set = value;
-      analogWrite(stirPin, stir_set);
+      if (run_system) {
+        analogWrite(stirPin, stir_set);
+      }
       break;
     case 'h':
       temp_set = value;
-      analogWrite(tempOutputPin, temp_set);
+      if (run_system) {
+        analogWrite(tempOutputPin, temp_set);
+      }
       break;
     case 'a':
       air_set = value;
-      analogWrite(airPin, air_set);
+      if (run_system) {
+        analogWrite(airPin, air_set);
+      }
       break;
     case 'f':
       fan_set = value;
-      analogWrite(fanPin, fan_set);
+      if (run_system) {
+        analogWrite(fanPin, fan_set);
+      }
       break;
     default:
       Serial.println("[Bug] Improper code execution");
+      return;
   }
   
   print_settings();
@@ -206,7 +216,7 @@ void pause() {
 }
 
 // flush any serial input
-void clearSerial() {
+void flushSerial() {
   while (Serial.available()) {
     Serial.read();
   }
@@ -259,5 +269,16 @@ int readPT(int LEDpin, int PTpin) {
   delay(OD_DELAY);
   analogWrite(LEDpin, 0);
   return brightness;
+}
+
+double get_real_temp() {
+  int raw_temp = analogRead(tempSensorPin);
+  double real_temp = 9.15 * raw_temp + 18.2;
+  return real_temp;
+}
+
+void control_temp() {
+  double new_set = PELTIER_SETPOINT + (TEMP_TARGET - get_real_temp()) * PELTIER_PROP_PARAM;
+  analogWrite(tempOutputPin, (int)(new_set));
 }
 
