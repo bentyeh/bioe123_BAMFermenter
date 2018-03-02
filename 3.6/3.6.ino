@@ -22,7 +22,7 @@ const int pausePin = 4;       // pause button
 const int OD_DELAY = 500;                 // duration (milleseconds) to blink (PWM) LED for
                                           // phototransistor reading
 const unsigned long DEBOUNCE_DELAY = 50;  // the debounce time; increase if the output flickers
-const int PELTIER_SETPOINT = 100;
+const int PELTIER_SETPOINT = 60;
 const double PELTIER_PROP_PARAM = 0.1;
 
 // -- GLOBAL VARIABLES and FLAGS --
@@ -150,7 +150,7 @@ void loop() {
       return;
     case 'c':
       if (mode == 0) {
-        Serial.println("Closed Loop Temperature control on");
+        Serial.println("Closed Loop Temperature control off");
         closedLoopControl = false;
         temp_set = PELTIER_SETPOINT;
         analogWrite(tempOutputPin, temp_set);
@@ -181,6 +181,7 @@ void loop() {
       break;
     default:
       Serial.println("[Bug] Improper code execution");
+      return;
   }
   
   print_settings();
@@ -262,13 +263,13 @@ int readPT(int LEDpin, int PTpin) {
 }
 
 double get_real_temp() {
-  int temp_raw = analogRead(tempSensorPin);
-  return (double)raw_temp;
+  int raw_temp = analogRead(tempSensorPin);
+  double real_temp = 9.15 * raw_temp + 18.2;
+  return real_temp;
 }
 
 void control_temp() {
-  double new_set = PELTIER_SETPOINT + (37 - get_real_temp()) * PELTIER_PROP_PARAM;
-  temp_set = (int)(new_set);
-  analogWrite(tempOutputPin, temp_set);
+  double new_set = PELTIER_SETPOINT + (37.0 - get_real_temp()) * PELTIER_PROP_PARAM;
+  analogWrite(tempOutputPin, (int)(new_set));
 }
 
