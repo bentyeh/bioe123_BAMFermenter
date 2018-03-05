@@ -10,6 +10,9 @@
 // - 500 Hz: ???
 // - 1000 Hz: ???
 
+// imports
+#include <EEPROM.h>
+
 // Arduino outputs
 const int stirPin = 3;        // gate of nMOS connected to motor
 const int peltierPin = 5;  // gate of nMOS connected to Peltier heating device
@@ -30,13 +33,19 @@ const int OD_DELAY = 500;                 // duration (milleseconds) to blink (P
 const unsigned long DEBOUNCE_DELAY = 50;  // the debounce time; increase if the output flickers
 const int PELTIER_SETPOINT = 60;
 const double PELTIER_PROP_PARAM = 0.1;
+int int_mask = (1 << 8) - 1;
 
 // -- GLOBAL VARIABLES and FLAGS --
+int addr = 0;                 // address on the EEPROM
 int temp_set = 0;             // temperature output setting
 int stir_set = 0;             // stir setting
 int air_set = 0;              // air pump setting
 int fan_set = 0;              // fan setting
+int OD = 0;
+int purple = 0;
 bool closedLoopControl = false;
+bool update_OD = true;
+bool update_purple = true;
 
 bool system_active = true;       // current system state (true = running; false = paused)
 int lastButtonState = HIGH;   // previous button reading (LOW = pressed; HIGH = unpressed)
@@ -72,6 +81,8 @@ void loop() {
   int value;
   delay(1000);
 
+  update_OD = true;
+  update_purple = true;
   if (Serial.available() != 0) {
     read_serial();
   }
@@ -80,9 +91,8 @@ void loop() {
     system_active = false;
     pause();
     print_status();
+    write_local();
     return;
-  } else {
-    print_status();
   }
 
   analogWrite(stirPin, stir_set);
@@ -93,6 +103,9 @@ void loop() {
   } else {
     analogWrite(peltierPin, temp_set);
   }
+
+  print_status();
+  write_local();
 }
 
 void read_serial() {
@@ -137,7 +150,6 @@ void read_serial() {
       if (value == 0) {
         closedLoopControl = false;
         temp_set = PELTIER_SETPOINT;
-        analogWrite(peltierPin, temp_set);
       } else if (value == 1) {
         closedLoopControl = true;
         control_temp();
@@ -162,11 +174,39 @@ void read_serial() {
   }
 }
 
+void write_loca() {
+  EEPROM.write(addr, -1);
+  safe_addr();
+  EEPROM.write(addr, temp_set & int_mask);
+  safe_addr();
+  EEPROM.write(addr, stir_set & int_mask);
+  safe_addr();
+  EEPROM.write(addr, air_set & int_mask);
+  safe_addr();
+  EEPROM.write(addr, fan_set & int_mask);
+  safe_addr();
+  EEPROM.write(addr, get_OD() & int_mask);
+  safe_addr();
+  EEPROM.write(addr, get_purple() & int_mask);
+  safe_addr();
+  EEPROM.write(addr, (int)get_temp() & int_mask);
+  safe_addr();
+  EEPROM.write(addr, -1);
+  safe_addr();
+}
+
+void safe_addr() {
+  addr++;
+  if (addr == EEPROM.length()) {
+    addr = 0;
+  }
+}
+
 
 // print current control settings
 void print_status() {
   Serial.print("{closed_loop_temp_control="+String(closedLoopControl) + ",");
-  Serial.print("density_reading="+String(get_density()) + ",");
+  Serial.print("density_reading="+String(get_OD()) + ",");
   Serial.print("purple_reading="+String(get_purple()) + ",");
   Serial.print("temp_reading="+String(get_temp()) + ",");
   if (!system_active) {
@@ -214,12 +254,22 @@ bool system_paused() {
   return lastButtonState == LOW;
 }
 
-int get_density() {
-  return readPT(LEDred, PTred);
+int get_OD() {
+  if (update_OD) {
+    update_OD = false;
+    OD = readPT(LEDred, PTred);
+  } else {
+    return OD;
+  }
 }
 
 int get_purple() {
-  return readPT(LEDgreen, PTgreen);
+  if (update_purple) {
+    update_purple = false;
+    purple = readPT(LEDgreen, PTgreen);
+  } else {
+    return purple;
+  }
 }
 
 // briefly turn on LED and measure amplified phototransistor output
