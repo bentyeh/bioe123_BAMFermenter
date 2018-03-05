@@ -1,3 +1,9 @@
+/*
+ * Command format: [c][#]
+ * -c = {s: stir*, h: heat*, a: aerate*, f: fan*, t: temp, p: purpleness, d: density}
+ * -# = {0, ..., 255}, only used by commands denoted with *; otherwise ignored
+*/
+
 // -- PINS --
 // Arduino Micro pins that support analogWrite() via PWM: 3, 5, 6, 9, 10, 11, 13
 // Arduino Micro pins PWM frequency:
@@ -30,11 +36,9 @@ int temp_set = 0;             // temperature output setting
 int stir_set = 0;             // stir setting
 int air_set = 0;              // air pump setting
 int fan_set = 0;              // fan setting
-bool suppressPrompt = false;            // Serial output (print) flag
 bool closedLoopControl = false;
 
-bool run_system = true;       // current system state (true = running; false = paused)
-int buttonState;              // current button reading  (LOW = pressed; HIGH = unpressed)
+bool system_active = true;       // current system state (true = running; false = paused)
 int lastButtonState = HIGH;   // previous button reading (LOW = pressed; HIGH = unpressed)
 unsigned long lastDebounceTime = 0;  // the last time the pausePin was toggled
 
@@ -59,140 +63,123 @@ void setup() {
   // set all outputs to LOW
   pause();
 
-  // print initial system settings
-  print_settings();
-
   // clear Serial input
   flushSerial();
 }
 
 void loop() {
-  if (button_press()) {
-    run_system = !run_system;
-    if (!run_system) {
-      Serial.println("System paused");
-      pause();
-      return;
-    } else {
-      Serial.println("System resumed");
-    }
-  }
-
-  if (closedLoopControl) {
-    control_temp();
-  }
-
   byte mode;
   int value;
-  int temp_raw;
-  double temp_real;
+  delay(1000);
 
-  if (!suppressPrompt) {
-    Serial.println("----------------------");
-    Serial.println("Command format: [c][#]");
-    Serial.println("- c = {s: stir*, h: heat*, a: aerate*, f: fan*, t: temp, p: purpleness, d: density}");
-    Serial.println("- # = {0, ..., 255}, only used by commands denoted with *; otherwise ignored");
-    Serial.println("----------------------");
-    suppressPrompt = true;
+  if (Serial.available() != 0) {
+    read_serial();
   }
 
-  if (Serial.available() == 0) {
-    return
+  if (system_paused()) {
+    system_active = false;
+    pause();
+    print_status();
+    return;
+  } else {
+    print_status();
   }
 
-  suppressPrompt = false;
+  analogWrite(stirPin, stir_set);
+  analogWrite(airPin, air_set);
+  analogWrite(fanPin, fan_set);
+  if (closedLoopControl) {
+    control_temp();
+  } else {
+    analogWrite(peltierPin, temp_set);
+  }
+}
+
+void read_serial() {
   mode = Serial.read(); // read first byte (one character) from serial 
 
   switch(mode) {
-    case 't':
-    case 'p':
-    case 'd':
+    // take a sensor reading (no further serial input to read)
+    case 't': // temperature
+    case 'p': // purple
+    case 'd': // OD
       flushSerial();
       break;
-    case 's':
-    case 'h':
-    case 'a':
-    case 'f':
-    case 'c':
+    // set setting of effector (futher serial input needed to specify setting)
+    case 's': // stir
+    case 'h': // heat
+    case 'a': // air
+    case 'f': // fan
+    case 'c': // closed-loop temperature control
       if (Serial.available() > 0) {
         // next valid integer
         value = (int) Serial.parseInt();
         flushSerial();
         if ((value < 0) || (value > 255)) {
-          Serial.println("[Error] Invalid input range.");
           return;
         }
       } else {
-        Serial.println("[Error] s, h, a, c, and f must be followed by an integer between 0 and 255.");
         flushSerial();
         return;
       }
       break;
     default:
-      Serial.println("[Error] Invalid character.");
       flushSerial();
       return;
   }
   
   switch(mode) {
     case 'r':
-      Serial.print("Temperature reading (C): ");
-      Serial.println(get_real_temp());
-      return;
     case 'd':
-      Serial.print("Density reading: ");
-      Serial.println(readPT(LEDred, PTred));
-      return;
     case 'p':
-      Serial.print("Purpleness reading: ");
-      Serial.println(readPT(LEDgreen, PTgreen));
-      return;
+      break;
     case 'c':
-      if (mode == 0) {
-        Serial.println("Closed Loop Temperature control off");
+      if (value == 0) {
         closedLoopControl = false;
         temp_set = PELTIER_SETPOINT;
         analogWrite(peltierPin, temp_set);
-      } else if (mode == 1) {
-        Serial.println("Closed Loop Temperature control on");
+      } else if (value == 1) {
         closedLoopControl = true;
         control_temp();
       } else {
-        Serial.println("[Error] Invalid character.");
         return;
       }
       break;
     case 's':
       stir_set = value;
-      analogWrite(stirPin, stir_set);
       break;
     case 't':
       temp_set = value;
-      analogWrite(peltierPin, temp_set);
       break;
     case 'a':
       air_set = value;
-      analogWrite(airPin, air_set);
       break;
     case 'f':
       fan_set = value;
-      analogWrite(fanPin, fan_set);
       break;
     default:
-      Serial.println("[Bug] Improper code execution");
       return;
   }
-  
-  print_settings();
 }
 
+
 // print current control settings
-void print_settings() {
-  Serial.print("(stir, temp, air, fan) = (");
-  Serial.print(String(stir_set) + ", ");
-  Serial.print(String(temp_set) + ", ");
-  Serial.print(String(air_set) + ", ");
-  Serial.println(String(fan_set) + ")");
+void print_status() {
+  Serial.print("{closed_loop_temp_control="+String(closedLoopControl) + ",");
+  Serial.print("density_reading="+String(get_density()) + ",");
+  Serial.print("purple_reading="+String(get_purple()) + ",");
+  Serial.print("temp_reading="+String(get_temp()) + ",");
+  if (!system_active) {
+  Serial.print("pelter_set=0,");
+  Serial.print("stir_set=0,");
+  Serial.print("airpump_set=0,");
+  Serial.println("fan_set=0");
+  } else {
+  Serial.print("pelter_set="+String(temp_set) + ",");
+  Serial.print("stir_set="+String(stir_set) + ",");
+  Serial.print("airpump_set="+String(air_set) + ",");
+  Serial.println("fan_set="+String(fan_set) + "}");
+  }
 }
 
 // set all outputs to LOW
@@ -212,43 +199,27 @@ void flushSerial() {
   }
 }
 
-// return whether the button was pressed
-bool button_press() {
-  // based on Debounce tutorial: https://www.arduino.cc/en/Tutorial/Debounce
-
-  // read the state of the pause button into a local variable:
+// return whether system is paused via button
+// based on Debounce tutorial: https://www.arduino.cc/en/Tutorial/Debounce
+bool system_paused() {
   int reading = digitalRead(pausePin);
-  bool change_state = false;
-  
-  // check to see if you just pressed the button
-  // (i.e. the input went from LOW to HIGH), and you've waited long enough
-  // since the last press to ignore any noise:
-
-  // if the button changed, due to noise or pressing:
+  // reset the debouncing timer
   if (reading != lastButtonState) {
-    // reset the debouncing timer
     lastDebounceTime = millis();
   }
-
+  // button state is stable, so update the button state
   if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
-    // whatever the reading is at, it's been there for longer than the debounce
-    // delay, so take it as the actual current state:
-
-    // if the button state has changed:
-    if (reading != buttonState) {
-      buttonState = reading;
-
-      // only toggle the system state if the new button state is LOW
-      if (buttonState == LOW) {
-        change_state = true;
-        Serial.println("Button reading: " + String(reading));
-      }
-    }
+    lastButtonState = reading;
   }
+  return lastButtonState == LOW;
+}
 
-  // save the reading. Next time through the loop, it'll be the lastButtonState:
-  lastButtonState = reading;
-  return change_state;
+int get_density() {
+  return readPT(LEDred, PTred);
+}
+
+int get_purple() {
+  return readPT(LEDgreen, PTgreen);
 }
 
 // briefly turn on LED and measure amplified phototransistor output
@@ -261,14 +232,13 @@ int readPT(int LEDpin, int PTpin) {
   return brightness;
 }
 
-double get_real_temp() {
+double get_temp() {
   int raw_temp = analogRead(tempSensorPin);
-  double real_temp = 9.15 * raw_temp + 18.2;
-  return real_temp;
+  return 9.15 * raw_temp + 18.2;
 }
 
 void control_temp() {
-  double new_set = PELTIER_SETPOINT + (37.0 - get_real_temp()) * PELTIER_PROP_PARAM;
+  double new_set = PELTIER_SETPOINT + (37.0 - get_temp()) * PELTIER_PROP_PARAM;
   analogWrite(peltierPin, (int)(new_set));
 }
 
