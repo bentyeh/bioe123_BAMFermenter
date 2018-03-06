@@ -34,8 +34,7 @@ const unsigned long DEBOUNCE_DELAY = 50;  // debounce time (ms); increase if the
 const int PELTIER_SETPOINT = 200;
 const double PELTIER_PROP_PARAM = 10;
 const int int_mask = ( 1 << 8 ) - 1;
-const int WRITE_LOCAL_INTERVAL = 60;      // duration (s) in between writing data to EEPROM
-const unsigned long UPDATE_INTERVAL = 1000L*60*20;
+const unsigned long UPDATE_INTERVAL = 1000L*60*20;   // duration (ms) in between writing data to EEPROM
 const unsigned long TEMP_MAX = 255;
 
 // -- GLOBAL VARIABLES and FLAGS --
