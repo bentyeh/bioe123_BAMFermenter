@@ -52,8 +52,8 @@ class AnalogPlot(object):
       try:
           stream = self.arduino.readline()
           ### if you want to plot in real-time (no buffer), uncomment next two lines
-          # while self.arduino.inWaiting() > 0: # clears buffer
-          #     stream = self.arduino.readline()
+          while self.arduino.inWaiting() > 0: # clears buffer
+              stream = self.arduino.readline()
           stream_values = [float(val) for val in stream.split()]
           self.add_to_plot(stream_values)
       except KeyboardInterrupt:

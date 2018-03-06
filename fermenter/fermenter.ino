@@ -33,7 +33,7 @@ const int OD_DELAY = 500;                 // duration (milleseconds) to blink (P
 const unsigned long DEBOUNCE_DELAY = 50;  // the debounce time; increase if the output flickers
 const int PELTIER_SETPOINT = 60;
 const double PELTIER_PROP_PARAM = 0.1;
-int int_mask = (1 << 8) - 1;
+const int int_mask = (1 << 😎 - 1;
 
 // -- GLOBAL VARIABLES and FLAGS --
 int addr = 0;                 // address on the EEPROM
@@ -77,13 +77,11 @@ void setup() {
 }
 
 void loop() {
-  byte mode;
-  int value;
   delay(1000);
 
   update_OD = true;
   update_purple = true;
-  if (Serial.available() != 0) {
+  if (Serial.available()) {
     read_serial();
   }
 
@@ -109,7 +107,8 @@ void loop() {
 }
 
 void read_serial() {
-  mode = Serial.read(); // read first byte (one character) from serial 
+  char mode = Serial.read(); // read first byte (one character) from serial 
+  int value;
 
   switch(mode) {
     // take a sensor reading (no further serial input to read)
@@ -142,7 +141,7 @@ void read_serial() {
   }
   
   switch(mode) {
-    case 'r':
+    case 't':
     case 'd':
     case 'p':
       break;
@@ -152,7 +151,6 @@ void read_serial() {
         temp_set = PELTIER_SETPOINT;
       } else if (value == 1) {
         closedLoopControl = true;
-        control_temp();
       } else {
         return;
       }
@@ -160,7 +158,7 @@ void read_serial() {
     case 's':
       stir_set = value;
       break;
-    case 't':
+    case 'h':
       temp_set = value;
       break;
     case 'a':
@@ -174,7 +172,7 @@ void read_serial() {
   }
 }
 
-void write_loca() {
+void write_local() {
   EEPROM.write(addr, -1);
   safe_addr();
   EEPROM.write(addr, temp_set & int_mask);
@@ -291,4 +289,3 @@ void control_temp() {
   double new_set = PELTIER_SETPOINT + (37.0 - get_temp()) * PELTIER_PROP_PARAM;
   analogWrite(peltierPin, (int)(new_set));
 }
-
