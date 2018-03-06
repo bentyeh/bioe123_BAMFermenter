@@ -14,12 +14,12 @@
 #include <EEPROM.h>
 
 // Arduino outputs
-const int stirPin = 3;        // gate of nMOS connected to motor
-const int peltierPin = 5;  // gate of nMOS connected to Peltier heating device
-const int airPin = 6;         // gate of nMOS connected to air pump
-const int fanPin = 9;         // gate of nMOS connected to fan
-const int LEDgreen = 10;      // green LED
-const int LEDred = 11;        // red LED
+const byte stirPin = 3;        // gate of nMOS connected to motor
+const byte peltierPin = 5;  // gate of nMOS connected to Peltier heating device
+const byte airPin = 6;         // gate of nMOS connected to air pump
+const byte fanPin = 9;         // gate of nMOS connected to fan
+const byte LEDgreen = 10;      // green LED
+const byte LEDred = 11;        // red LED
 
 // Arduino inputs
 const int tempSensorPin = A0; // temperature sensor
@@ -28,7 +28,7 @@ const int PTred = A2;         // phototransistor for red LED
 const int pausePin = 4;       // pause button
 
 // -- CONSTANTS --
-const int OD_DELAY = 500;                 // duration (milleseconds) to blink (PWM) LED for
+const int OD_DELAY = 5;                 // duration (milleseconds) to blink (PWM) LED for
                                           // phototransistor reading
 const unsigned long DEBOUNCE_DELAY = 50;  // the debounce time; increase if the output flickers
 const int PELTIER_SETPOINT = 60;
@@ -49,6 +49,7 @@ bool update_purple = true;
 
 bool system_active = true;       // current system state (true = running; false = paused)
 int lastButtonState = HIGH;   // previous button reading (LOW = pressed; HIGH = unpressed)
+int buttonState;
 unsigned long lastDebounceTime = 0;  // the last time the pausePin was toggled
 
 void setup() {
@@ -85,12 +86,14 @@ void loop() {
     read_serial();
   }
 
-  if (system_paused()) {
-    system_active = false;
-    pause();
-    print_status();
-    write_local();
-    return;
+  if (button_press()) {
+    system_active = !system_active;
+    if (!system_active) {
+      pause();
+      print_status();
+      write_local();
+      return;
+    }
   }
 
   analogWrite(stirPin, stir_set);
@@ -173,8 +176,6 @@ void read_serial() {
 }
 
 void write_local() {
-  EEPROM.write(addr, -1);
-  safe_addr();
   EEPROM.write(addr, temp_set & int_mask);
   safe_addr();
   EEPROM.write(addr, stir_set & int_mask);
@@ -183,13 +184,11 @@ void write_local() {
   safe_addr();
   EEPROM.write(addr, fan_set & int_mask);
   safe_addr();
-  EEPROM.write(addr, get_OD() & int_mask);
+  EEPROM.write(addr, get_OD()>>2 & int_mask);
   safe_addr();
-  EEPROM.write(addr, get_purple() & int_mask);
+  EEPROM.write(addr, get_purple()>>2 & int_mask);
   safe_addr();
-  EEPROM.write(addr, (int)get_temp() & int_mask);
-  safe_addr();
-  EEPROM.write(addr, -1);
+  EEPROM.write(addr, (int)((get_temp()-37)*10) & int_mask);
   safe_addr();
 }
 
@@ -203,7 +202,8 @@ void safe_addr() {
 
 // print current control settings
 void print_status() {
-  Serial.print("{closed_loop_temp_control="+String(closedLoopControl) + ",");
+  Serial.print("{time="+String(millis()) + ",");
+  Serial.print("closed_loop_temp_control="+String(closedLoopControl) + ",");
   Serial.print("density_reading="+String(get_OD()) + ",");
   Serial.print("purple_reading="+String(get_purple()) + ",");
   Serial.print("temp_reading="+String(get_temp()) + ",");
@@ -236,20 +236,42 @@ void flushSerial() {
     Serial.read();
   }
 }
+// return whether the button was pressed
+bool button_press() {
+  // based on Debounce tutorial: https://www.arduino.cc/en/Tutorial/Debounce
 
-// return whether system is paused via button
-// based on Debounce tutorial: https://www.arduino.cc/en/Tutorial/Debounce
-bool system_paused() {
+  // read the state of the pause button into a local variable:
   int reading = digitalRead(pausePin);
-  // reset the debouncing timer
+  bool change_state = false;
+
+  // check to see if you just pressed the button
+  // (i.e. the input went from LOW to HIGH), and you've waited long enough
+  // since the last press to ignore any noise:
+
+  // if the button changed, due to noise or pressing:
   if (reading != lastButtonState) {
+    // reset the debouncing timer
     lastDebounceTime = millis();
   }
-  // button state is stable, so update the button state
+
   if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
-    lastButtonState = reading;
+    // whatever the reading is at, it's been there for longer than the debounce
+    // delay, so take it as the actual current state:
+
+    // if the button state has changed:
+    if (reading != buttonState) {
+      buttonState = reading;
+
+      // only toggle the system state if the new button state is LOW
+      if (buttonState == LOW) {
+        change_state = true;
+      }
+    }
   }
-  return lastButtonState == LOW;
+
+  // save the reading. Next time through the loop, it'll be the lastButtonState:
+  lastButtonState = reading;
+  return change_state;
 }
 
 int get_OD() {
