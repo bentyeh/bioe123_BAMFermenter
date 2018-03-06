@@ -7,33 +7,34 @@
 // -- PINS --
 // Arduino Micro pins that support analogWrite() via PWM: 3, 5, 6, 9, 10, 11, 13
 // Arduino Micro pins PWM frequency:
-// - 500 Hz: ???
-// - 1000 Hz: ???
+// - 500 Hz: 5, 6, 9, 10, 13
+// - 1000 Hz: 3, 11
 
 // imports
 #include <EEPROM.h>
 
 // Arduino outputs
-const byte stirPin = 3;        // gate of nMOS connected to motor
-const byte peltierPin = 5;  // gate of nMOS connected to Peltier heating device
-const byte airPin = 6;         // gate of nMOS connected to air pump
-const byte fanPin = 9;         // gate of nMOS connected to fan
-const byte LEDgreen = 10;      // green LED
-const byte LEDred = 11;        // red LED
+const byte stirPin = 6;       // gate of nMOS connected to motor
+const byte peltierPin = 9;    // gate of nMOS connected to Peltier heating device
+const byte airPin = 5;        // gate of nMOS connected to air pump
+const byte fanPin = 10;       // gate of nMOS connected to fan
+const byte LEDgreen = 3;      // green LED
+const byte LEDred = 11;       // red LED
 
 // Arduino inputs
 const int tempSensorPin = A0; // temperature sensor
-const int PTgreen = A1;       // phototransistor for green LED
-const int PTred = A2;         // phototransistor for red LED
-const int pausePin = 4;       // pause button
+const int PTred = A1;         // phototransistor for red LED
+const int PTgreen = A2;       // phototransistor for green LED
+const int pausePin = A5;      // pause button
 
 // -- CONSTANTS --
-const int OD_DELAY = 5;                 // duration (milleseconds) to blink (PWM) LED for
-                                          // phototransistor reading
-const unsigned long DEBOUNCE_DELAY = 50;  // the debounce time; increase if the output flickers
+const bool OVERNIGHT = false;
+const int OD_DELAY = 50;                   // duration (ms) to blink (PWM) LED for phototransistor reading
+const unsigned long DEBOUNCE_DELAY = 50;  // debounce time (ms); increase if the output flickers
 const int PELTIER_SETPOINT = 60;
-const double PELTIER_PROP_PARAM = 0.1;
-const int int_mask = (1 << 8) - 1;
+const double PELTIER_PROP_PARAM = 10;
+const int int_mask = ( 1 << 8 ) - 1;
+const int WRITE_LOCAL_INTERVAL = 60;      // duration (s) in between writing data to EEPROM
 
 // -- GLOBAL VARIABLES and FLAGS --
 int addr = 0;                 // address on the EEPROM
@@ -43,14 +44,16 @@ int air_set = 0;              // air pump setting
 int fan_set = 0;              // fan setting
 int OD = 0;
 int purple = 0;
-bool closedLoopControl = false;
+bool closedLoopControl = true;
 bool update_OD = true;
 bool update_purple = true;
 
-bool system_active = true;       // current system state (true = running; false = paused)
-int lastButtonState = HIGH;   // previous button reading (LOW = pressed; HIGH = unpressed)
+bool system_active = true;            // current system state (true = running; false = paused)
+int lastButtonState = HIGH;           // previous button reading (LOW = pressed; HIGH = unpressed)
 int buttonState;
-unsigned long lastDebounceTime = 0;  // the last time the pausePin was toggled
+unsigned long lastDebounceTime = 0;   // last time (ms) the pausePin was toggled
+
+unsigned long nextWrite = 0; // last time (ms) data was written to EEPROM
 
 void setup() {
   // begin serial output
@@ -154,6 +157,7 @@ void read_serial() {
         temp_set = PELTIER_SETPOINT;
       } else if (value == 1) {
         closedLoopControl = true;
+        control_temp();
       } else {
         return;
       }
@@ -176,6 +180,14 @@ void read_serial() {
 }
 
 void write_local() {
+  if (millis() < nextWrite) {
+    return;
+  }
+  unsigned long rn = millis()/1000/60;
+  EEPROM.write(addr, rn & int_mask);
+  safe_addr();
+  EEPROM.write(addr, rn>>8 & int_mask);
+  safe_addr();
   EEPROM.write(addr, temp_set & int_mask);
   safe_addr();
   EEPROM.write(addr, stir_set & int_mask);
@@ -190,6 +202,8 @@ void write_local() {
   safe_addr();
   EEPROM.write(addr, (int)((get_temp()-37)*10) & int_mask);
   safe_addr();
+
+  nextWrite += 1000*60*20;
 }
 
 void safe_addr() {
@@ -199,24 +213,24 @@ void safe_addr() {
   }
 }
 
-
 // print current control settings
 void print_status() {
-  Serial.print("{time="+String(millis()) + ",");
-  Serial.print("closed_loop_temp_control="+String(closedLoopControl) + ",");
-  Serial.print("density_reading="+String(get_OD()) + ",");
-  Serial.print("purple_reading="+String(get_purple()) + ",");
-  Serial.print("temp_reading="+String(get_temp()) + ",");
+  Serial.print("{'time(min)'="+String(((float)millis())/1000/60) + ",");
+  Serial.print("'system_active'="+String(system_active) + ",");
+  Serial.print("'closed_loop_temp_control'="+String(closedLoopControl) + ",");
+  Serial.print("'density_reading'="+String(get_OD()) + ",");
+  Serial.print("'purple_reading'="+String(get_purple()) + ",");
+  Serial.print("'temp_reading(oC)'="+String(get_temp()) + ",");
   if (!system_active) {
-  Serial.print("pelter_set=0,");
-  Serial.print("stir_set=0,");
-  Serial.print("airpump_set=0,");
-  Serial.println("fan_set=0");
+  Serial.print("'heat_set'=0,");
+  Serial.print("'stir_set'=0,");
+  Serial.print("'airpump_set'=0,");
+  Serial.println("'fan_set'=0");
   } else {
-  Serial.print("pelter_set="+String(temp_set) + ",");
-  Serial.print("stir_set="+String(stir_set) + ",");
-  Serial.print("airpump_set="+String(air_set) + ",");
-  Serial.println("fan_set="+String(fan_set) + "}");
+  Serial.print("'heat_set'="+String(temp_set) + ",");
+  Serial.print("'stir_set'="+String(stir_set) + ",");
+  Serial.print("'airpump_set'="+String(air_set) + ",");
+  Serial.println("'fan_set'="+String(fan_set) + "}");
   }
 }
 
@@ -236,6 +250,7 @@ void flushSerial() {
     Serial.read();
   }
 }
+
 // return whether the button was pressed
 bool button_press() {
   // based on Debounce tutorial: https://www.arduino.cc/en/Tutorial/Debounce
@@ -302,10 +317,12 @@ int readPT(int LEDpin, int PTpin) {
 
 double get_temp() {
   int raw_temp = analogRead(tempSensorPin);
-  return 9.15 * raw_temp + 18.2;
+  return ((float) raw_temp - 18.2)/9.15;
 }
 
 void control_temp() {
   double new_set = PELTIER_SETPOINT + (37.0 - get_temp()) * PELTIER_PROP_PARAM;
-  analogWrite(peltierPin, (int)(new_set));
+  temp_set = (int)(new_set);
+  fan_set = 255;
+  analogWrite(peltierPin, temp_set);
 }
