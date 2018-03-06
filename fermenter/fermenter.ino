@@ -227,24 +227,17 @@ void safe_addr() {
 
 // print current control settings
 void print_status() {
-  Serial.print("{'time(min)':"+String(((float)millis())/1000/60) + ",");
-  Serial.print("'system_active':"+String(system_active) + ",");
-  Serial.print("'closed_loop_temp_control':"+String(closedLoopControl) + ",");
-  Serial.print("'density_reading':"+String(get_OD()) + ",");
-  Serial.print("'purple_reading':"+String(get_purple()) + ",");
-  Serial.print("'temp_reading(oC)':"+String(get_temp()) + ",");
-  Serial.print("'raw_temp_reading':"+String(analogRead(tempSensorPin)) + ",");
-  if (!system_active) {
-  Serial.print("'heat_set':0,");
-  Serial.print("'stir_set':0,");
-  Serial.print("'airpump_set':0,");
-  Serial.println("'fan_set':0}");
-  } else {
-  Serial.print("'heat_set':"+String(heat_set) + ",");
-  Serial.print("'stir_set':"+String(stir_set) + ",");
-  Serial.print("'airpump_set':"+String(air_set) + ",");
-  Serial.println("'fan_set':"+String(fan_set) + "}");
-  }
+  Serial.print("{\"time(min)\":"+String(((float)millis())/1000/60) + ",");
+  Serial.print("\"system_active\":"+String(system_active) + ",");
+  Serial.print("\"closed_loop_temp_control\":"+String(closedLoopControl) + ",");
+  Serial.print("\"density_reading\":"+String(get_OD()) + ",");
+  Serial.print("\"purple_reading\":"+String(get_purple()) + ",");
+  Serial.print("\"temp_reading(oC)\":"+String(get_temp()) + ",");
+  Serial.print("\"raw_temp_reading\":"+String(analogRead(tempSensorPin)) + ",");
+  Serial.print("\"heat_set\":"+String(heat_set) + ",");
+  Serial.print("\"stir_set\":"+String(stir_set) + ",");
+  Serial.print("\"airpump_set\":"+String(air_set) + ",");
+  Serial.println("\"fan_set\":"+String(fan_set) + "}");
 }
 
 // set all outputs to LOW
