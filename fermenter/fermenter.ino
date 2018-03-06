@@ -168,7 +168,6 @@ void read_serial() {
         heat_set = PELTIER_SETPOINT;
       } else if (value == 1) {
         closedLoopControl = true;
-        control_temp();
       } else {
         return;
       }
@@ -326,14 +325,18 @@ int readPT(int LEDpin, int PTpin) {
 
 double get_temp() {
   int raw_temp = analogRead(tempSensorPin);
-  return ((float) raw_temp - 18.2)/9.15;
+  return ((double) raw_temp - 18.2)/9.15;
 }
 
 void control_temp() {
   double new_set = PELTIER_SETPOINT + (37.0 - get_temp()) * PELTIER_PROP_PARAM;
+
+  // create new set points
   heat_set = (int)(new_set);
-  heat_set = min(heat_set,TEMP_MAX);
-  heat_set = max(heat_set,0);
+  heat_set = max(min(heat_set,TEMP_MAX),0);
   fan_set = 255;
+
+  // write new setpoints to Peltier and fan
   analogWrite(peltierPin, heat_set);
+  analogWrite(fanPin, fan_set);
 }
