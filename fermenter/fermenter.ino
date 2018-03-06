@@ -31,10 +31,11 @@ const int pausePin = A5;      // pause button
 const bool OVERNIGHT = false;
 const int OD_DELAY = 50;                   // duration (ms) to blink (PWM) LED for phototransistor reading
 const unsigned long DEBOUNCE_DELAY = 50;  // debounce time (ms); increase if the output flickers
-const int PELTIER_SETPOINT = 60;
+const int PELTIER_SETPOINT = 100;
 const double PELTIER_PROP_PARAM = 10;
 const int int_mask = ( 1 << 8 ) - 1;
 const int WRITE_LOCAL_INTERVAL = 60;      // duration (s) in between writing data to EEPROM
+const unsigned long UPDATE_INTERVAL = 1000L*60*20;
 
 // -- GLOBAL VARIABLES and FLAGS --
 int addr = 0;                 // address on the EEPROM
@@ -213,7 +214,7 @@ void write_local() {
   EEPROM.write(addr, (int)((get_temp()-37)*10) & int_mask);
   safe_addr();
 
-  nextWrite += 1000*60*20;
+  nextWrite += UPDATE_INTERVAL;
 }
 
 void safe_addr() {
@@ -333,8 +334,8 @@ double get_temp() {
 void control_temp() {
   double new_set = PELTIER_SETPOINT + (37.0 - get_temp()) * PELTIER_PROP_PARAM;
   temp_set = (int)(new_set);
-  temp_set = min(temp_set,150)
-  temp_set = max(temp_set,0)
+  temp_set = min(temp_set,150);
+  temp_set = max(temp_set,0);
   fan_set = 255;
   analogWrite(peltierPin, temp_set);
 }
