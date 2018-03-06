@@ -323,6 +323,8 @@ double get_temp() {
 void control_temp() {
   double new_set = PELTIER_SETPOINT + (37.0 - get_temp()) * PELTIER_PROP_PARAM;
   temp_set = (int)(new_set);
+  temp_set = min(temp_set,150)
+  temp_set = max(temp_set,0)
   fan_set = 255;
   analogWrite(peltierPin, temp_set);
 }
