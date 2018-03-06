@@ -10,93 +10,68 @@ Website: electronut.in
 git: https://gist.github.com/electronut/d5e5f68c610821e311b0
 """
 
-import sys, serial
+import sys, serial, json
 import numpy as np
 from collections import deque
 import matplotlib.pyplot as plt 
 import matplotlib.animation as animation
 
+objects = []
     
 # plot class
 class AnalogPlot(object):
-  # constr
+    # constr
     def __init__(self, strPort, maxLen, baud_rate):
-      # open serial port
-      self.arduino = serial.Serial(strPort, baud_rate)
-      self.maxLen  = maxLen
-      # grab a printed line to check length
-      stream = self.arduino.readline()
-      stream_values = [float(val) for val in stream.split()]
-      # plot nothing, but want handle to line object
-      self.n_lines = len(stream_values)
-      self.lines = []
-      for i in range(self.n_lines):
-        line, = plt.plot([], [])
-        self.lines.append(line)
-      self.data    = []
-      for i in range(self.n_lines):
-        self.data.append(deque([0.0]*maxLen))
+        global sample_line
+        # open serial port
+        self.arduino = serial.Serial(strPort, baud_rate)
+        self.maxLen  = maxLen
 
-    # add data
-    def add_to_plot(self, stream_values):
-        for i in range(self.n_lines):
-            val    = stream_values[i]
-            line   = self.lines[i]
-            data_q = self.data[i]
-            data_q.popleft()
-            data_q.append(val)
-            line.set_data(np.linspace(-self.maxLen,0,self.maxLen), data_q)
+        # grab a printed line to check length
+        sample_line = json.loads(self.arduino.readline())
+        stream_values = json.loads(sample_line)
+        objects = sample_line.keys()
+        values = [sample_line[objectx] for objectx in objects]
 
-    # update plot
+        # plot nothing, but want handle to line object
+        # self.n_bars = len(objects)
+        self.rects = plt.bar(objects, values, align='center', alpha=0.5)
+
     def update(self, frameNum):
-      try:
-          stream = self.arduino.readline()
-          ### if you want to plot in real-time (no buffer), uncomment next two lines
-          while self.arduino.inWaiting() > 0: # clears buffer
-              stream = self.arduino.readline()
-          stream_values = [float(val) for val in stream.split()]
-          self.add_to_plot(stream_values)
-      except KeyboardInterrupt:
-          print('exiting')
-      
-    # clean up
+        try:
+            stream = self.arduino.readline()
+            while self.arduino.inWaiting() > 0: # clears buffer
+                stream = self.arduino.readline()
+            new_line = json.loads(stream)
+            values = [new_line[objectx] for objectx in objects]
+            for rect, val in zip(self.rects, values):
+                rect.set_height(val)
+        except KeyboardInterrupt:
+            print('exiting')
+
     def close(self):
-      # close serial
-      self.arduino.flush()
-      self.arduino.close()    
+        self.arduino.flush()
+        self.arduino.close()    
 
-# main() function
 def main(port, baud_rate):
-
     print('reading from serial port ' + port + '...')
+    analogPlot = AnalogPlot(port, data_length, baud_rate)
 
     # plot parameters
-    data_length = 100 # number of points shown in window
-    
-    # set up figure
     fig = plt.figure()
-    plt.xlabel('Time History')
+    objects = sample_line.keys()
+    plt.xlabel(objects)
     plt.ylabel('Value')
     plt.title('Real Time Plot for Port ' + port)
-    x_min, x_max = -data_length, 5
-    plt.xlim([x_min, x_max])
-    y_min, y_max = 0, 1023
+    plt.xticks(np.arange(len(objects)), objects)
+    y_min, y_max = 0, 255
     plt.ylim([y_min, y_max])
 
-    
-
-    analogPlot = AnalogPlot(port, data_length, baud_rate)
     print('plotting data...')
-
-    anim = animation.FuncAnimation(fig, analogPlot.update, 
-                                 interval=50)
-
-    # show plot
+    anim = animation.FuncAnimation(fig, analogPlot.update, interval=50)
     plt.show()
 
-    # clean up
     analogPlot.close()
-
     print('exiting.')
   
 """
