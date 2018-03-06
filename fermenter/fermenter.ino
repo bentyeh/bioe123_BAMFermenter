@@ -33,7 +33,7 @@ const int OD_DELAY = 5;                 // duration (milleseconds) to blink (PWM
 const unsigned long DEBOUNCE_DELAY = 50;  // the debounce time; increase if the output flickers
 const int PELTIER_SETPOINT = 60;
 const double PELTIER_PROP_PARAM = 0.1;
-const int int_mask = (1 << 😎 - 1;
+const int int_mask = (1 << 8) - 1;
 
 // -- GLOBAL VARIABLES and FLAGS --
 int addr = 0;                 // address on the EEPROM
@@ -110,8 +110,8 @@ void loop() {
 }
 
 void read_serial() {
-  char mode = Serial.read(); // read first byte (one character) from serial 
-  int value;
+  byte mode = Serial.read(); // read first byte (one character) from serial 
+  int value = 0;
 
   switch(mode) {
     // take a sensor reading (no further serial input to read)
@@ -278,18 +278,16 @@ int get_OD() {
   if (update_OD) {
     update_OD = false;
     OD = readPT(LEDred, PTred);
-  } else {
-    return OD;
   }
+  return OD;
 }
 
 int get_purple() {
   if (update_purple) {
     update_purple = false;
     purple = readPT(LEDgreen, PTgreen);
-  } else {
-    return purple;
   }
+  return purple;
 }
 
 // briefly turn on LED and measure amplified phototransistor output
