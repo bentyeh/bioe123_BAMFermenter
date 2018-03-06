@@ -31,15 +31,16 @@ const int pausePin = A5;      // pause button
 const bool OVERNIGHT = false;
 const int OD_DELAY = 50;                   // duration (ms) to blink (PWM) LED for phototransistor reading
 const unsigned long DEBOUNCE_DELAY = 50;  // debounce time (ms); increase if the output flickers
-const int PELTIER_SETPOINT = 100;
+const int PELTIER_SETPOINT = 200;
 const double PELTIER_PROP_PARAM = 10;
 const int int_mask = ( 1 << 8 ) - 1;
 const int WRITE_LOCAL_INTERVAL = 60;      // duration (s) in between writing data to EEPROM
 const unsigned long UPDATE_INTERVAL = 1000L*60*20;
+const unsigned long TEMP_MAX = 255;
 
 // -- GLOBAL VARIABLES and FLAGS --
 int addr = 0;                 // address on the EEPROM
-int temp_set = 0;             // temperature output setting
+int heat_set = 0;             // temperature output setting
 int stir_set = 0;             // stir setting
 int air_set = 0;              // air pump setting
 int fan_set = 0;              // fan setting
@@ -103,9 +104,9 @@ void loop() {
   if (button_press()) {
     system_active = !system_active;
     if (!system_active) {
-      pause();
       print_status();
       write_local();
+      pause();
       return;
     }
   }
@@ -116,7 +117,7 @@ void loop() {
   if (closedLoopControl) {
     control_temp();
   } else {
-    analogWrite(peltierPin, temp_set);
+    analogWrite(peltierPin, heat_set);
   }
 
   print_status();
@@ -165,7 +166,7 @@ void read_serial() {
     case 'c':
       if (value == 0) {
         closedLoopControl = false;
-        temp_set = PELTIER_SETPOINT;
+        heat_set = PELTIER_SETPOINT;
       } else if (value == 1) {
         closedLoopControl = true;
         control_temp();
@@ -177,7 +178,7 @@ void read_serial() {
       stir_set = value;
       break;
     case 'h':
-      temp_set = value;
+      heat_set = value;
       break;
     case 'a':
       air_set = value;
@@ -199,7 +200,7 @@ void write_local() {
   safe_addr();
   EEPROM.write(addr, rn>>8 & int_mask);
   safe_addr();
-  EEPROM.write(addr, temp_set & int_mask);
+  EEPROM.write(addr, heat_set & int_mask);
   safe_addr();
   EEPROM.write(addr, stir_set & int_mask);
   safe_addr();
@@ -226,27 +227,32 @@ void safe_addr() {
 
 // print current control settings
 void print_status() {
-  Serial.print("{'time(min)'="+String(((float)millis())/1000/60) + ",");
-  Serial.print("'system_active'="+String(system_active) + ",");
-  Serial.print("'closed_loop_temp_control'="+String(closedLoopControl) + ",");
-  Serial.print("'density_reading'="+String(get_OD()) + ",");
-  Serial.print("'purple_reading'="+String(get_purple()) + ",");
-  Serial.print("'temp_reading(oC)'="+String(get_temp()) + ",");
+  Serial.print("{'time(min)':"+String(((float)millis())/1000/60) + ",");
+  Serial.print("'system_active':"+String(system_active) + ",");
+  Serial.print("'closed_loop_temp_control':"+String(closedLoopControl) + ",");
+  Serial.print("'density_reading':"+String(get_OD()) + ",");
+  Serial.print("'purple_reading':"+String(get_purple()) + ",");
+  Serial.print("'temp_reading(oC)':"+String(get_temp()) + ",");
+  Serial.print("'raw_temp_reading':"+String(analogRead(tempSensorPin)) + ",");
   if (!system_active) {
-  Serial.print("'heat_set'=0,");
-  Serial.print("'stir_set'=0,");
-  Serial.print("'airpump_set'=0,");
-  Serial.println("'fan_set'=0");
+  Serial.print("'heat_set':0,");
+  Serial.print("'stir_set':0,");
+  Serial.print("'airpump_set':0,");
+  Serial.println("'fan_set':0}");
   } else {
-  Serial.print("'heat_set'="+String(temp_set) + ",");
-  Serial.print("'stir_set'="+String(stir_set) + ",");
-  Serial.print("'airpump_set'="+String(air_set) + ",");
-  Serial.println("'fan_set'="+String(fan_set) + "}");
+  Serial.print("'heat_set':"+String(heat_set) + ",");
+  Serial.print("'stir_set':"+String(stir_set) + ",");
+  Serial.print("'airpump_set':"+String(air_set) + ",");
+  Serial.println("'fan_set':"+String(fan_set) + "}");
   }
 }
 
 // set all outputs to LOW
 void pause() {
+  stir_set = 0;
+  heat_set = 0;
+  air_set = 0;
+  fan_set = 0;
   analogWrite(stirPin, 0);
   analogWrite(peltierPin, 0);
   analogWrite(airPin, 0);
@@ -333,9 +339,9 @@ double get_temp() {
 
 void control_temp() {
   double new_set = PELTIER_SETPOINT + (37.0 - get_temp()) * PELTIER_PROP_PARAM;
-  temp_set = (int)(new_set);
-  temp_set = min(temp_set,150);
-  temp_set = max(temp_set,0);
+  heat_set = (int)(new_set);
+  heat_set = min(heat_set,TEMP_MAX);
+  heat_set = max(heat_set,0);
   fan_set = 255;
-  analogWrite(peltierPin, temp_set);
+  analogWrite(peltierPin, heat_set);
 }
