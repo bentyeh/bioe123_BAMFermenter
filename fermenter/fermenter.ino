@@ -78,6 +78,16 @@ void setup() {
 
   // clear Serial input
   flushSerial();
+
+  // zero EEPROM memory
+  while (true) {
+    EEPROM.write(addr, 0);
+    addr++;
+    if (addr == EEPROM.length()) {
+      addr = 0;
+      break;
+    }
+  }
 }
 
 void loop() {
