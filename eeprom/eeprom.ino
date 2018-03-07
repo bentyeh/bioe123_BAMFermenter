@@ -8,9 +8,9 @@ byte heat_set;
 byte stir_set;
 byte air_set;
 byte fan_set;
-unsigned int od;
-unsigned int purple;
-unsigned int temp;
+byte od;
+byte purple;
+byte temp;
 
 String START_FLAG = "start";
 String END_FLAG = "end";
@@ -27,11 +27,12 @@ void setup() {
     ;
   }
 
-  // write test data to EEPROM
+  /* write test data to EEPROM
   for(int i = 1; i < EEPROM.length(); i++) {
     EEPROM.write(i, i & int_mask);
     EEPROM.update(0, i);
-  }
+  }*/
+
   EEPROM.get(0, lastaddr);
 }
 

@@ -12,6 +12,7 @@
 
 // imports
 #include <EEPROM.h>
+#include <limits.h>
 
 // Arduino outputs
 const byte stirPin = 6;       // gate of nMOS connected to motor
@@ -34,7 +35,7 @@ const unsigned long DEBOUNCE_DELAY = 50;  // debounce time (ms); increase if the
 const int PELTIER_SETPOINT = 200;
 const double PELTIER_PROP_PARAM = 10;
 const int int_mask = ( 1 << 8 ) - 1;
-const unsigned long UPDATE_INTERVAL = 1000L*60*20;   // duration (ms) in between writing data to EEPROM
+const unsigned long UPDATE_INTERVAL = 1000L*60*1;   // duration (ms) in between writing data to EEPROM
 const unsigned long TEMP_MAX = 255;
 
 // -- GLOBAL VARIABLES and FLAGS --
@@ -55,6 +56,7 @@ int buttonState;
 unsigned long lastDebounceTime = 0;   // last time (ms) the pausePin was toggled
 
 unsigned long nextWrite = 0; // last time (ms) data was written to EEPROM
+int lastaddr;
 
 void setup() {
   // begin serial output
@@ -75,7 +77,12 @@ void setup() {
   pinMode(pausePin, INPUT_PULLUP);
   
   // set all outputs to LOW
-  pause();
+  analogWrite(stirPin, 0);
+  analogWrite(peltierPin, 0);
+  analogWrite(airPin, 0);
+  analogWrite(fanPin, 0);
+  analogWrite(LEDgreen, 0);
+  analogWrite(LEDred, 0);
 
   // clear Serial input
   flushSerial();
@@ -85,7 +92,7 @@ void setup() {
     EEPROM.write(addr, 0);
     addr++;
     if (addr == EEPROM.length()) {
-      addr = 0;
+      addr = sizeof(addr);
       break;
     }
   }
@@ -107,6 +114,8 @@ void loop() {
       write_local();
       pause();
       return;
+    } else {
+      closedLoopControl = true;
     }
   }
 
@@ -165,7 +174,7 @@ void read_serial() {
     case 'c':
       if (value == 0) {
         closedLoopControl = false;
-        heat_set = PELTIER_SETPOINT;
+//        heat_set = PELTIER_SETPOINT;
       } else if (value == 1) {
         closedLoopControl = true;
       } else {
@@ -190,7 +199,7 @@ void read_serial() {
 }
 
 void write_local() {
-  if (millis() < nextWrite) {
+  if (millis() <= nextWrite) {
     return;
   }
   unsigned long rn = millis()/1000/60;
@@ -211,15 +220,20 @@ void write_local() {
   EEPROM.write(addr, get_purple()>>2 & int_mask);
   safe_addr();
   EEPROM.write(addr, (int)((get_temp()-37)*10) & int_mask);
+  EEPROM.put(0, addr);
   safe_addr();
 
-  nextWrite += UPDATE_INTERVAL;
+  if (nextWrite < ULONG_MAX - UPDATE_INTERVAL) {
+    nextWrite += UPDATE_INTERVAL;
+  }
 }
 
 void safe_addr() {
   addr++;
   if (addr == EEPROM.length()) {
-    addr = 0;
+    addr--;
+    nextWrite = ULONG_MAX;
+    return;
   }
 }
 
@@ -244,6 +258,7 @@ void pause() {
   heat_set = 0;
   air_set = 0;
   fan_set = 0;
+  closedLoopControl = false;
   analogWrite(stirPin, 0);
   analogWrite(peltierPin, 0);
   analogWrite(airPin, 0);
@@ -335,8 +350,10 @@ void control_temp() {
   heat_set = (int)(new_set);
   heat_set = max(min(heat_set,TEMP_MAX),0);
   fan_set = 255;
+  stir_set= 150;
 
   // write new setpoints to Peltier and fan
+  analogWrite(stirPin, stir_set);
   analogWrite(peltierPin, heat_set);
   analogWrite(fanPin, fan_set);
 }

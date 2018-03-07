@@ -60,7 +60,6 @@ def main(port, baud_rate):
         data.append([int(val) for val in stream.split()])
 
     # convert data to numpy array
-    print(data)
     data = np.array(data)
     print(data)
     time = data[:,0]
