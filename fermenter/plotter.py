@@ -1,98 +1,158 @@
 """
 Display analog data from Arduino using Python (matplotlib)
 
-Code edited by J. Sganga for Bioe123
-Date: 2/20/2017
+Requires serial output from Arduino in JSON format {"var_name": value}
 
-Original:
-Author: Mahesh Venkitachalam
-Website: electronut.in
-git: https://gist.github.com/electronut/d5e5f68c610821e311b0
+Based on J. Sganga's code provided for BIOE 123, based on Mahesh Venkitachalam's
+code at https://gist.github.com/electronut/d5e5f68c610821e311b0
 """
 
-import sys, serial, json
+import argparse, json
+import serial
 import numpy as np
-from collections import deque
 import matplotlib.pyplot as plt 
 import matplotlib.animation as animation
 
-objects = []
-    
 # plot class
 class AnalogPlot(object):
-    # constr
-    def __init__(self, strPort, maxLen, baud_rate):
+
+    def __init__(self, port, baud_rate, limits, filename):
+        '''
+        Initialize current figure with one line of data
+
+        Arguments
+        - port: str
+        - baud_rate: int
+        - limits: list (len = n_keys) of list (len = 2) of int.
+        '''
 
         # open serial port
-        self.arduino = serial.Serial(strPort, baud_rate)
+        self.arduino = serial.Serial(port, baud_rate)
 
-        # grab a printed line to check length
-        self.sample_line = json.loads(self.arduino.readline())
-        self.objects = list(self.sample_line.keys())
-        values = [self.sample_line[objectx] for objectx in self.sample_line]
+        # read line from serial
+        stream = self.arduino.readline().decode("utf-8").rstrip()
 
-        # plot nothing, but want handle to line object
-        self.n_bars = len(objects)
-        self.rects = plt.bar(range(len(values)), values, align='center', alpha=0.5)
+        # clear file
+        self.filename = filename
+        if self.filename != None:
+            with open(filename, 'w') as f:
+                # save line to file
+                print(stream, file=f, flush=True)
         
-        # print(self.rects)
-        # self.rects = plt.bar([],[])
+        # parse data
+        data = json.loads(stream)
+        self.keys = list(data)
+        values = list(data.values())
 
-    def update(self, frameNum):
+        self.n_keys = len(values)
+
+        # list of BarContainer
+        self.bars = []
+
+        # initialize figure with data - create subplot for each key
+        for i in range(self.n_keys):
+            plt.subplot(1, self.n_keys, i+1)
+            plt.ylim(limits[i])
+            plt.xticks([0], [self.keys[i]], rotation=17, horizontalalignment='right')
+            self.bars.append(plt.bar(0, values[i], align='center', alpha=0.5))
+        
+        # Adjust subplots spacing within the figure
+        plt.subplots_adjust(wspace=1)
+
+        # Note
+        # ----
+        # self.bars: list of BarContainer
+        # - BarContainer: essentially tuple of rectangles
+        #   - BarContainer.patches: list of rectangle
+        #     - rectangles (technically matplotlib.patches.Rectangle) are Artists
+
+    def update(self, frame):
+        '''
+        Arguments
+        - frame: int
+            Next frame number. Required by matplotlib.animation.FuncAnimation class
+        
+        Return: list of Artists
+            Artists in figure. This return value is required when blitting is used
+            to optimize drawing of matplotlib.animation.FuncAnimation
+        '''
+
         try:
-            print('yolo updating')
-            stream = self.arduino.readline()
-            # while self.arduino.inWaiting() > 0: # clears buffer
-            #     stream = self.arduino.readline()
-            new_line = json.loads(stream)
-            print(new_line)
-            values = [new_line[objectx] for objectx in new_line]
-            for i in range(len(values)):
-                self.rects[i].set_height(values[i])
-            return self.rects
-            #for rect, val in zip(self.rects, values):
-            #    rect.set_height(val)
+            # clear buffer
+            while self.arduino.inWaiting() > 0:
+                stream = self.arduino.readline()
+
+            # read line from serial
+            stream = self.arduino.readline().decode("utf-8").rstrip()
+
+            # save line to file
+            if self.filename != None:
+                with open(self.filename, 'a') as f:
+                    print(stream, file=f, flush=True)
+
+            # parse
+            data = json.loads(stream)
+            values = [data[key] for key in data]
+
+            artists = []
+
+            # update values for each barplot
+            for i in range(self.n_keys):
+                self.bars[i][0].set_height(values[i])
+                artists.append(self.bars[i][0])
+
+            return artists
+
         except KeyboardInterrupt:
             print('exiting')
 
     def close(self):
-        self.arduino.flush()
-        self.arduino.close()    
+        self.arduino.flush()    # wait for transmission of outgoing serial data to complete and prevents buffering
+        self.arduino.close()    # close port
 
-def main(port, baud_rate):
-    print('reading from serial port ' + port + '...')
-    data_length = 100
-    
+def main(port, baud_rate, filename):
+    '''
+    Arguments
+    - port: str
+        serial port. Examples: 'COM1' (Windows), '/dev/cu.usbmodem....' (Mac)
+    - baud_rate: int
+        baud rate
+    '''
+
+    # y-axis limits
+    limits = [
+        [0, 1440],        # minutes
+        [0, 1],           # system active
+        [0, 1],           # closed loop
+        [0, 1023],        # density
+        [0, 1023],        # purple
+        [20, 50],         # temp
+        [0, 1023],        # raw temp
+        [0, 255],         # heat set
+        [0, 255],         # stir set
+        [0, 255],         # air set
+        [0, 255],         # fan set
+    ]
 
     # plot parameters
     fig = plt.figure()
-    plt.ylabel('Value')
-    plt.title('Real Time Plot for Port ' + port)
-    y_min, y_max = 0, 255
-    plt.ylim([y_min, y_max])
+    plt.suptitle('Real Time Plot for Port ' + port)
 
-    analogPlot = AnalogPlot(port, data_length, baud_rate)
-    plt.xticks(np.arange(analogPlot.n_bars), analogPlot.objects)
+    print('reading from serial port ' + port + '...')
+    analogPlot = AnalogPlot(port, baud_rate, limits, filename)
 
     print('plotting data...')
-    anim = animation.FuncAnimation(fig, analogPlot.update, interval=50)
+    anim = animation.FuncAnimation(fig, analogPlot.update, interval=200, blit=True)
     plt.show()
 
     analogPlot.close()
     print('exiting.')
-  
-"""
-call main, CHANGE THESE VALUES!!!
-replace 'COM6' with whatever the tools pulldown bar shows you're connected to
-for mac, it looks like '/dev/cu.usbmodem....' (without the (Arduino/Genuino Micro))
-Also, note the arduino puts out data faster than we can plot in real time, so there's 
-a delay between the plotted value and the actual value (~1-2 min)
 
-Format for data in Arduino Serial print, data values separated by space, new line for each time point:
-Serial.print(data_value_1);
-Serial.print(' ');
-...
-Serial.println(data_value_n);
-"""
 if __name__ == '__main__':
-    main('COM3', 9600)
+    parser = argparse.ArgumentParser(description='Plot serial data in realtime.')
+    parser.add_argument('port', type=str, help='serial port (e.g. COM3)')
+    parser.add_argument('--baud', type=int, default=9600, metavar='B', help='baud rate (default 9600)')
+    parser.add_argument('--file', type=str, default=None, help='filename to save serial data to file')
+    args = parser.parse_args()
+    main(args.port, args.baud, args.file)
+
