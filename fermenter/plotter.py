@@ -28,12 +28,15 @@ class AnalogPlot(object):
 
         # grab a printed line to check length
         self.sample_line = json.loads(self.arduino.readline())
-        self.objects = self.sample_line.keys()
-        values = [self.sample_line[objectx] for objectx in objects]
+        self.objects = list(self.sample_line.keys())
+        values = [self.sample_line[objectx] for objectx in self.sample_line]
 
         # plot nothing, but want handle to line object
-        # self.n_bars = len(objects)
-        self.rects = plt.bar(objects, values, align='center', alpha=0.5)
+        self.n_bars = len(objects)
+        self.rects = plt.bar(range(len(values)), values, align='center', alpha=0.5)
+        
+        # print(self.rects)
+        # self.rects = plt.bar([],[])
 
     def update(self, frameNum):
         try:
@@ -43,9 +46,12 @@ class AnalogPlot(object):
             #     stream = self.arduino.readline()
             new_line = json.loads(stream)
             print(new_line)
-            values = [new_line[objectx] for objectx in self.objects]
-            for rect, val in zip(self.rects, values):
-                rect.set_height(val)
+            values = [new_line[objectx] for objectx in new_line]
+            for i in range(len(values)):
+                self.rects[i].set_height(values[i])
+            return self.rects
+            #for rect, val in zip(self.rects, values):
+            #    rect.set_height(val)
         except KeyboardInterrupt:
             print('exiting')
 
@@ -56,16 +62,17 @@ class AnalogPlot(object):
 def main(port, baud_rate):
     print('reading from serial port ' + port + '...')
     data_length = 100
-    analogPlot = AnalogPlot(port, data_length, baud_rate)
+    
 
     # plot parameters
     fig = plt.figure()
-    objects = analogPlot.sample_line.keys()
     plt.ylabel('Value')
     plt.title('Real Time Plot for Port ' + port)
-    plt.xticks(np.arange(len(objects)), objects)
     y_min, y_max = 0, 255
     plt.ylim([y_min, y_max])
+
+    analogPlot = AnalogPlot(port, data_length, baud_rate)
+    plt.xticks(np.arange(analogPlot.n_bars), analogPlot.objects)
 
     print('plotting data...')
     anim = animation.FuncAnimation(fig, analogPlot.update, interval=50)
