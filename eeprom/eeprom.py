@@ -1,20 +1,7 @@
-"""
-Display analog data from Arduino using Python (matplotlib)
-Code editted by J. Sganga for Bioe123
-Date: 2/20/2017
-Original:
-Author: Mahesh Venkitachalam
-Website: electronut.in
-git: https://gist.github.com/electronut/d5e5f68c610821e311b0
-"""
-
-import sys, serial
+import argparse
+import serial
 import numpy as np
-# import pandas as pd
-from collections import deque
-import matplotlib.pyplot as plt 
-import matplotlib.animation as animation
-
+import matplotlib.pyplot as plt
 
 def main(port, baud_rate):
 
@@ -23,34 +10,25 @@ def main(port, baud_rate):
 
     arduino = serial.Serial(port, baud_rate)
 
-    print("Serial connected")
+    print('reading from serial port ' + port + '...')
 
     # wait for START_FLAG
     while True:
-        # wait for serial output
-        while arduino.inWaiting == 0:
-            print("here")
-            pass
         stream = arduino.readline().decode("utf-8").rstrip()
         if stream == START_FLAG:
             print("start received")
             break
 
     # get header
-    while arduino.inWaiting == 0:
-        pass
     stream = arduino.readline().decode("utf-8").rstrip()
     header = stream.split()
-    print("Header received: ")
-    print(header)
+    print("Header received: " + str(header))
 
     # initialize data list
     data = []
 
     # read until END_FLAG
     while True:
-        while arduino.inWaiting == 0:
-            pass
         stream = arduino.readline().decode("utf-8").rstrip()
         if stream == END_FLAG:
             print("end received")
@@ -69,7 +47,7 @@ def main(port, baud_rate):
     f, axarr = plt.subplots(num_vars, sharex=True)
     f.suptitle('Recorded data')
     for i in range(data.shape[1] - 1):
-        axarr[i].plot(time,data[:,i+1])
+        axarr[i].scatter(time,data[:,i+1])
         axarr[i].set_ylabel(header[i+1])
 
     axarr[-1].set_xlabel(header[0])
@@ -89,5 +67,11 @@ Serial.print(' ');
 ...
 Serial.println(data_value_n);
 """
+
 if __name__ == '__main__':
-    main('COM3', 9600)
+    parser = argparse.ArgumentParser(description='Plot stored EEPROM data.')
+    parser.add_argument('port', type=str, help='serial port (e.g. COM3)')
+    parser.add_argument('--baud', type=int, default=9600, metavar='B', help='baud rate (default 9600)')
+    args = parser.parse_args()
+    main(args.port, args.baud)
+

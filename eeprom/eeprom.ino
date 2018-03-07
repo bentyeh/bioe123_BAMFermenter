@@ -27,11 +27,11 @@ void setup() {
     ;
   }
 
-  /* write test data to EEPROM
-  for(int i = 1; i < EEPROM.length(); i++) {
+  // write test data to EEPROM
+  for(int i = 2; i < EEPROM.length(); i++) {
     EEPROM.write(i, i & int_mask);
     EEPROM.update(0, i);
-  }*/
+  }
 
   EEPROM.get(0, lastaddr);
 }
