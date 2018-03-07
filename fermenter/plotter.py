@@ -22,16 +22,14 @@ objects = []
 class AnalogPlot(object):
     # constr
     def __init__(self, strPort, maxLen, baud_rate):
-        global sample_line
+
         # open serial port
         self.arduino = serial.Serial(strPort, baud_rate)
-        self.maxLen  = maxLen
 
         # grab a printed line to check length
-        sample_line = json.loads(self.arduino.readline())
-        stream_values = json.loads(sample_line)
-        objects = sample_line.keys()
-        values = [sample_line[objectx] for objectx in objects]
+        self.sample_line = json.loads(self.arduino.readline())
+        self.objects = self.sample_line.keys()
+        values = [self.sample_line[objectx] for objectx in objects]
 
         # plot nothing, but want handle to line object
         # self.n_bars = len(objects)
@@ -39,11 +37,13 @@ class AnalogPlot(object):
 
     def update(self, frameNum):
         try:
+            print('yolo updating')
             stream = self.arduino.readline()
-            while self.arduino.inWaiting() > 0: # clears buffer
-                stream = self.arduino.readline()
+            # while self.arduino.inWaiting() > 0: # clears buffer
+            #     stream = self.arduino.readline()
             new_line = json.loads(stream)
-            values = [new_line[objectx] for objectx in objects]
+            print(new_line)
+            values = [new_line[objectx] for objectx in self.objects]
             for rect, val in zip(self.rects, values):
                 rect.set_height(val)
         except KeyboardInterrupt:
@@ -55,12 +55,12 @@ class AnalogPlot(object):
 
 def main(port, baud_rate):
     print('reading from serial port ' + port + '...')
+    data_length = 100
     analogPlot = AnalogPlot(port, data_length, baud_rate)
 
     # plot parameters
     fig = plt.figure()
-    objects = sample_line.keys()
-    plt.xlabel(objects)
+    objects = analogPlot.sample_line.keys()
     plt.ylabel('Value')
     plt.title('Real Time Plot for Port ' + port)
     plt.xticks(np.arange(len(objects)), objects)
@@ -88,4 +88,4 @@ Serial.print(' ');
 Serial.println(data_value_n);
 """
 if __name__ == '__main__':
-    main('COM6', 9600)
+    main('COM3', 9600)
