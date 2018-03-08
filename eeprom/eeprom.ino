@@ -28,10 +28,10 @@ void setup() {
   }
 
   // write test data to EEPROM
-  for(int i = 2; i < EEPROM.length(); i++) {
+  /*for(int i = 2; i < EEPROM.length(); i++) {
     EEPROM.write(i, i & int_mask);
     EEPROM.update(0, i);
-  }
+  }*/
 
   EEPROM.get(0, lastaddr);
 }
@@ -41,18 +41,22 @@ void loop() {
   int addr = sizeof(lastaddr);
   Serial.println(lastaddr);
 
+  int od_decode;
+  int purple_decode;
+  float temp_decode;
+
   // print start flag
   Serial.println(START_FLAG);
 
   // print header
-  Serial.print("time ");
-  Serial.print("heat ");
-  Serial.print("stir ");
-  Serial.print("air ");
-  Serial.print("fan ");
-  Serial.print("od ");
-  Serial.print("purple ");
-  Serial.println("temp ");
+  Serial.print("time (min), ");
+  Serial.print("heat, ");
+  Serial.print("stir, ");
+  Serial.print("air, ");
+  Serial.print("fan, ");
+  Serial.print("od, ");
+  Serial.print("purple, ");
+  Serial.println("temp, ");
 
 
   // loop until reading last value
@@ -75,15 +79,19 @@ void loop() {
     EEPROM.get(addr, temp);
     addr += sizeof(temp);
 
+    od_decode = od << 2;
+    purple_decode = purple << 2;
+    temp_decode = (float) temp/10.0 + 37.0;
+
     // print values
     Serial.print(time_min); Serial.print(" ");
     Serial.print(heat_set); Serial.print(" ");
     Serial.print(stir_set); Serial.print(" ");
     Serial.print(air_set); Serial.print(" ");
     Serial.print(fan_set); Serial.print(" ");
-    Serial.print(od); Serial.print(" ");
-    Serial.print(purple); Serial.print(" ");
-    Serial.print(temp); Serial.println(" ");
+    Serial.print(od_decode); Serial.print(" ");
+    Serial.print(purple_decode); Serial.print(" ");
+    Serial.print(temp_decode); Serial.println(" ");
   }
 
   // print end flag

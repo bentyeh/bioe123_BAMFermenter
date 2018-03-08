@@ -3,7 +3,7 @@ import serial
 import numpy as np
 import matplotlib.pyplot as plt
 
-def main(port, baud_rate):
+def main(port, baud_rate, filename=None):
 
     START_FLAG = "start"
     END_FLAG = "end"
@@ -21,8 +21,11 @@ def main(port, baud_rate):
 
     # get header
     stream = arduino.readline().decode("utf-8").rstrip()
-    header = stream.split()
+    header = stream.split(",")
     print("Header received: " + str(header))
+    if filename != None:
+        with open(filename, 'w') as f:
+            print(stream, file=f, flush=True)
 
     # initialize data list
     data = []
@@ -33,13 +36,15 @@ def main(port, baud_rate):
         if stream == END_FLAG:
             print("end received")
             break
+        if filename != None:
+            with open(filename, 'a') as f:
+                print(stream, file=f, flush=True)
 
         # time, temp, od, purple, stir, air, heat, fan = [int(val) for val in stream.split()]
-        data.append([int(val) for val in stream.split()])
+        data.append([float(val) for val in stream.split()])
 
     # convert data to numpy array
     data = np.array(data)
-    print(data)
     time = data[:,0]
     num_vars = data.shape[1] - 1
 
@@ -49,8 +54,13 @@ def main(port, baud_rate):
     for i in range(data.shape[1] - 1):
         axarr[i].scatter(time,data[:,i+1])
         axarr[i].set_ylabel(header[i+1])
+        axarr[i].ticklabel_format(style='plain',useOffset=False)
+        axarr[i].yaxis.set_label_coords(-0.15, 0.5)
 
     axarr[-1].set_xlabel(header[0])
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.9)
 
     plt.savefig("eeprom.png")
     plt.show()
@@ -72,6 +82,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Plot stored EEPROM data.')
     parser.add_argument('port', type=str, help='serial port (e.g. COM3)')
     parser.add_argument('--baud', type=int, default=9600, metavar='B', help='baud rate (default 9600)')
+    parser.add_argument('--file', type=str, default=None, help='filename to save serial data to file')
     args = parser.parse_args()
-    main(args.port, args.baud)
+    main(args.port, args.baud, args.file)
 
