@@ -32,7 +32,7 @@ const int pausePin = A5;      // pause button
 const bool OVERNIGHT = false;
 const int OD_DELAY = 50;                   // duration (ms) to blink (PWM) LED for phototransistor reading
 const unsigned long DEBOUNCE_DELAY = 50;  // debounce time (ms); increase if the output flickers
-const int PELTIER_SETPOINT = 200;
+const int PELTIER_SETPOINT = 185;
 const double PELTIER_PROP_PARAM = 10;
 const int int_mask = ( 1 << 8 ) - 1;
 const unsigned long UPDATE_INTERVAL = 1000L*60*20;   // duration (ms) in between writing data to EEPROM
@@ -350,7 +350,7 @@ void control_temp() {
   heat_set = (int)(new_set);
   heat_set = max(min(heat_set,TEMP_MAX),0);
   fan_set = 255;
-  stir_set= 150;
+  stir_set= max(stir_set, 80);
 
   // write new setpoints to Peltier and fan
   analogWrite(stirPin, stir_set);
