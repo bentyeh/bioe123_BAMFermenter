@@ -1,9 +1,28 @@
+'''
+Parse and plot data read from Arduino EEPROM.
+'''
+
 import argparse
 import serial
 import numpy as np
 import matplotlib.pyplot as plt
 
 def main(port, baud_rate, filename=None):
+    '''
+    Arguments
+    - port: str
+        serial port. Examples: 'COM1' (Windows), '/dev/cu.usbmodem....' (Mac)
+    - baud_rate: int
+        baud rate
+    - filename: str
+        filename to store serial data
+
+    Assumes data is received in the following format (each element on its own line)
+        START_FLAG
+        header (comma-delimited)
+        data (whitespace-delimited, 1 line per timepoint)
+        END_FLAG
+    '''
 
     START_FLAG = "start"
     END_FLAG = "end"
@@ -64,19 +83,6 @@ def main(port, baud_rate, filename=None):
 
     plt.savefig("eeprom.png")
     plt.show()
-    
-"""
-call main, CHANGE THESE VALUES!!!
-replace 'COM6' with whatever the tools pulldown bar shows you're connected to
-for mac, it looks like '/dev/cu.usbmodem....' (without the (Arduino/Genuino Micro))
-Also, note the arduino puts out data faster than we can plot in real time, so there's 
-a delay between the plotted value and the actual value (~1-2 min)
-Format for data in Arduino Serial print, data values separated by space, new line for each time point:
-Serial.print(data_value_1);
-Serial.print(' ');
-...
-Serial.println(data_value_n);
-"""
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Plot stored EEPROM data.')

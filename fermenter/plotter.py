@@ -57,6 +57,7 @@ class AnalogPlot(object):
             self.bars.append(plt.bar(0, values[i], align='center', alpha=0.5))
         
         # Adjust subplots spacing within the figure
+        # plt.tight_layout()
         plt.subplots_adjust(wspace=1)
 
         # Note
@@ -117,6 +118,8 @@ def main(port, baud_rate, filename):
         serial port. Examples: 'COM1' (Windows), '/dev/cu.usbmodem....' (Mac)
     - baud_rate: int
         baud rate
+    - filename: str
+        filename to store serial data
     '''
 
     # y-axis limits
