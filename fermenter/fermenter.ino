@@ -46,9 +46,12 @@ int air_set = 0;              // air pump setting
 int fan_set = 0;              // fan setting
 int OD = 0;
 int purple = 0;
+double temp = 37.0;
 bool closedLoopControl = true;
 bool update_OD = true;
 bool update_purple = true;
+bool update_temp = true;
+double temp_record[] = {37.0, 37.0, 37.0, 37.0};
 
 bool system_active = true;            // current system state (true = running; false = paused)
 int lastButtonState = HIGH;           // previous button reading (LOW = pressed; HIGH = unpressed)
