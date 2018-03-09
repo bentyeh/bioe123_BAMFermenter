@@ -113,4 +113,4 @@ Serial.print(' ');
 Serial.println(data_value_n);
 """
 if __name__ == '__main__':
-    main('COM6', 9600)
+    main('COM8', 9600)
