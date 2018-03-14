@@ -125,16 +125,15 @@ def main(port, baud_rate, filename):
     # y-axis limits
     limits = [
         [0, 1440],        # minutes
-        [0, 1],           # system active
-        [0, 1],           # closed loop
-        [0, 1023],        # density
-        [0, 1023],        # purple
-        [20, 50],         # temp
-        [0, 1023],        # raw temp
         [0, 255],         # heat set
         [0, 255],         # stir set
         [0, 255],         # air set
         [0, 255],         # fan set
+        [0, 1023],        # density
+        [0, 1023],        # purple
+        [20, 50],         # temp
+        [0, 1],           # system active
+        [0, 1],           # closed loop
     ]
 
     # plot parameters

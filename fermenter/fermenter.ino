@@ -5,14 +5,14 @@
 */
 
 // -- PINS --
-// Arduino Micro pins that support analogWrite() via PWM: 3, 5, 6, 9, 10, 11, 13
 // Arduino Micro pins PWM frequency:
 // - 500 Hz: 5, 6, 9, 10, 13
 // - 1000 Hz: 3, 11
+// Arduino Micro pins that support software serial input (Rx): 8, 9, 10, 11, 14 (MISO), 15 (SCK), 16 (MOSI)
 
 // imports
 #include <EEPROM.h>
-#include <limits.h>
+#include <SoftwareSerial.h>
 
 // Arduino outputs
 const byte stirPin = 6;       // gate of nMOS connected to motor
@@ -21,49 +21,63 @@ const byte airPin = 5;        // gate of nMOS connected to air pump
 const byte fanPin = 10;       // gate of nMOS connected to fan
 const byte LEDgreen = 3;      // green LED
 const byte LEDred = 11;       // red LED
+const byte txPin = 2;         // software serial Tx
 
 // Arduino inputs
-const int tempSensorPin = A0; // temperature sensor
-const int PTred = A1;         // phototransistor for red LED
-const int PTgreen = A2;       // phototransistor for green LED
-const int pausePin = A5;      // pause button
+const byte tempSensorPin = A0; // temperature sensor
+const byte PTred = A1;         // phototransistor for red LED
+const byte PTgreen = A2;       // phototransistor for green LED
+const byte pausePin = A5;      // pause button
+const byte rxPin = 8;         // software serial Rx
 
 // -- CONSTANTS --
-const bool OVERNIGHT = false;
-const int OD_DELAY = 50;                   // duration (ms) to blink (PWM) LED for phototransistor reading
-const unsigned long DEBOUNCE_DELAY = 50;  // debounce time (ms); increase if the output flickers
-const int PELTIER_SETPOINT = 185;
-const double PELTIER_PROP_PARAM = 10;
-const int int_mask = ( 1 << 8 ) - 1;
-const unsigned long UPDATE_INTERVAL = 1000L*60*20;   // duration (ms) in between writing data to EEPROM
-const unsigned long TEMP_MAX = 255;
+const int OD_DELAY = 50;                            // duration (ms) to blink (PWM) LED for phototransistor reading
+const unsigned long DEBOUNCE_DELAY = 50;            // debounce time (ms); increase if the output flickers
+const int PELTIER_SETPOINT = 185;                   // set point (0 to 255) for Peltier heat setting
+const double PELTIER_PROP_PARAM = 10;               // heating proportionality constant
+const unsigned long HEAT_MAX = 255;                 // maximum limit (0 to 255) for Peltier heat setting
+const unsigned long UPDATE_INTERVAL = 1000L*60*20;  // duration (ms) in between writing data to EEPROM
+const int LOOP_DELAY = 1000;                        // duration (ms) in between each update (measurement and control)
 
 // -- GLOBAL VARIABLES and FLAGS --
-int addr = 0;                 // address on the EEPROM
-int heat_set = 0;             // temperature output setting
-int stir_set = 0;             // stir setting
-int air_set = 0;              // air pump setting
-int fan_set = 0;              // fan setting
-int OD = 0;
-int purple = 0;
-double temp = 37.0;
-bool closedLoopControl = true;
-bool update_OD = true;
-bool update_purple = true;
-bool update_temp = true;
-double temp_record[] = {37.0, 37.0, 37.0, 37.0};
+// software serial
+SoftwareSerial ESPserial(rxPin, txPin);
 
-bool system_active = true;            // current system state (true = running; false = paused)
+int addr = 2;                 // current address to write to on the EEPROM
+unsigned long nextWrite = 0;  // next time (ms) to write data to EEPROM
+
+// data
+double time_double = 0;       // last time point measured
+unsigned int time_int = 0;    // last time point measured
+byte heat_set = 0;            // temperature output setting
+byte stir_set = 0;            // stir setting
+byte air_set = 0;             // air pump setting
+byte fan_set = 0;             // fan setting
+int od = 0;                   // optical density reading
+int purple = 0;               // purpleness reading
+int temp = 0;                 // temperature reading
+const int totalsize = sizeof(time_int)
+                    + sizeof(heat_set)
+                    + sizeof(stir_set)
+                    + sizeof(air_set)
+                    + sizeof(fan_set)
+                    + sizeof(od)
+                    + sizeof(purple)
+                    + sizeof(temp);
+
+// system status
+bool closedLoopControl = true;        // closed loop temperature control state
+bool system_active = true;            // current system state
+
+// global variables for debounce and identifying button presses
 int lastButtonState = HIGH;           // previous button reading (LOW = pressed; HIGH = unpressed)
-int buttonState;
+int buttonState;                      // current button reading
 unsigned long lastDebounceTime = 0;   // last time (ms) the pausePin was toggled
-
-unsigned long nextWrite = 0; // last time (ms) data was written to EEPROM
-int lastaddr;
 
 void setup() {
   // begin serial output
   Serial.begin(9600);
+  ESPserial.begin(9600);
   
   // set output pins
   pinMode(stirPin, OUTPUT);
@@ -89,63 +103,71 @@ void setup() {
 
   // clear Serial input
   flushSerial();
-
-  // zero EEPROM memory
-  while (true) {
-    EEPROM.write(addr, 0);
-    addr++;
-    if (addr == EEPROM.length()) {
-      addr = sizeof(addr);
-      break;
-    }
-  }
+  flushESPserial();
 }
 
 void loop() {
-  delay(1000);
+  delay(LOOP_DELAY);
 
-  update_OD = true;
-  update_purple = true;
+  // read ESP serial input and update settings
+  if (ESPserial.available()) {
+    read_ESPserial();
+  }
+
+  // read serial input and update settings
   if (Serial.available()) {
     read_serial();
   }
 
+  // determine if system needs to be paused
   if (button_press()) {
     system_active = !system_active;
     if (!system_active) {
-      print_status();
-      write_local();
       pause();
-      return;
-    } else {
-      closedLoopControl = true;
     }
   }
 
-  analogWrite(stirPin, stir_set);
-  analogWrite(airPin, air_set);
-  analogWrite(fanPin, fan_set);
-  if (closedLoopControl) {
-    control_temp();
-  } else {
-    analogWrite(peltierPin, heat_set);
-  }
+  if (system_active) {
+    analogWrite(airPin, air_set);
 
-  print_status();
-  write_local();
+    // closed loop control automatically adjusts stir, heat, and fan
+    if (closedLoopControl) {
+      control_temp();
+    } else {
+      analogWrite(stirPin, stir_set);
+      analogWrite(peltierPin, heat_set);
+      analogWrite(fanPin, fan_set);
+    }
+
+    // measure values and record to global variables
+    measure();
+
+    // print values to serial output
+    print_status();
+
+    // save values to EEPROM
+    if (millis() > nextWrite) {
+      ESPserial.println("writing to EEPROM");
+      nextWrite += UPDATE_INTERVAL;
+      write_local();
+    }
+  }
+}
+
+// measure values and record to global variables
+void measure() {
+  time_double = (double) (millis() / 1000) / 60.0;
+  time_int = (unsigned int) time_double;
+  od = get_OD();
+  purple = get_purple();
+  temp = get_temp();
 }
 
 void read_serial() {
-  byte mode = Serial.read(); // read first byte (one character) from serial 
+  byte mode = Serial.read(); // read first byte (one character) from serial
   int value = 0;
 
   switch(mode) {
-    // take a sensor reading (no further serial input to read)
-    case 't': // temperature
-    case 'p': // purple
-    case 'd': // OD
-      flushSerial();
-      break;
     // set setting of effector (futher serial input needed to specify setting)
     case 's': // stir
     case 'h': // heat
@@ -170,31 +192,87 @@ void read_serial() {
   }
   
   switch(mode) {
-    case 't':
-    case 'd':
-    case 'p':
+    case 's': // stir
+      stir_set = value;
       break;
-    case 'c':
+    case 'h': // heat
+      heat_set = value;
+      break;
+    case 'a': // air
+      air_set = value;
+      break;
+    case 'f': // fan
+      fan_set = value;
+      break;
+    case 'c': // closed-loop temperature control
       if (value == 0) {
         closedLoopControl = false;
-//        heat_set = PELTIER_SETPOINT;
       } else if (value == 1) {
         closedLoopControl = true;
       } else {
         return;
       }
       break;
-    case 's':
+    default:
+      return;
+  }
+}
+
+void read_ESPserial() {
+  byte mode = ESPserial.read(); // read first byte (one character) from serial
+  Serial.println(mode);
+  int value = 0;
+  int curbyte;
+  bool isnumber = false;
+
+  switch(mode) {
+    // set setting of effector (futher serial input needed to specify setting)
+    case 's': // stir
+    case 'h': // heat
+    case 'a': // air
+    case 'f': // fan
+    case 'c': // closed-loop temperature control
+      while (ESPserial.available() > 0) {
+        curbyte = ESPserial.read();
+        if ((curbyte >= 48) && (curbyte < 57)) { // ascii code for integer between 0 to 9
+          isnumber = true;
+          value *= 10;
+          value += (int) curbyte - 48;
+        } else if (isnumber) { // end of number
+            break;
+        }
+      }
+      flushESPserial();
+      if ((value < 0) || (value > 255) || !isnumber) { // invalid number
+        return;
+      }
+      break;
+    default:
+      flushESPserial();
+      return;
+  }
+  Serial.println(value);
+  switch(mode) {
+    case 's': // stir
       stir_set = value;
       break;
-    case 'h':
+    case 'h': // heat
       heat_set = value;
       break;
-    case 'a':
+    case 'a': // air
       air_set = value;
       break;
-    case 'f':
+    case 'f': // fan
       fan_set = value;
+      break;
+    case 'c': // closed-loop temperature control
+      if (value == 0) {
+        closedLoopControl = false;
+      } else if (value == 1) {
+        closedLoopControl = true;
+      } else {
+        return;
+      }
       break;
     default:
       return;
@@ -202,66 +280,56 @@ void read_serial() {
 }
 
 void write_local() {
-  if (millis() <= nextWrite) {
-    return;
-  }
-  unsigned long rn = millis()/1000/60;
-  EEPROM.write(addr, rn & int_mask);
-  safe_addr();
-  EEPROM.write(addr, rn>>8 & int_mask);
-  safe_addr();
-  EEPROM.write(addr, heat_set & int_mask);
-  safe_addr();
-  EEPROM.write(addr, stir_set & int_mask);
-  safe_addr();
-  EEPROM.write(addr, air_set & int_mask);
-  safe_addr();
-  EEPROM.write(addr, fan_set & int_mask);
-  safe_addr();
-  EEPROM.write(addr, get_OD()>>2 & int_mask);
-  safe_addr();
-  EEPROM.write(addr, get_purple()>>2 & int_mask);
-  safe_addr();
-  EEPROM.write(addr, (int)((get_temp()-37)*10) & int_mask);
-  EEPROM.put(0, addr);
-  safe_addr();
+  if (addr < EEPROM.length() - totalsize) {
+    EEPROM.put(addr, time_int);
+    addr += sizeof(time_int);
+    EEPROM.put(addr, heat_set);
+    addr += sizeof(heat_set);
+    EEPROM.put(addr, stir_set);
+    addr += sizeof(stir_set);
+    EEPROM.put(addr, air_set);
+    addr += sizeof(air_set);
+    EEPROM.put(addr, fan_set);
+    addr += sizeof(fan_set);
+    EEPROM.put(addr, od);
+    addr += sizeof(od);
+    EEPROM.put(addr, purple);
+    addr += sizeof(purple);
+    EEPROM.put(addr, temp);
+    addr += sizeof(temp);
 
-  if (nextWrite < ULONG_MAX - UPDATE_INTERVAL) {
-    nextWrite += UPDATE_INTERVAL;
-  }
-}
-
-void safe_addr() {
-  addr++;
-  if (addr == EEPROM.length()) {
-    addr--;
-    nextWrite = ULONG_MAX;
-    return;
+    // store last written address to 0x00
+    EEPROM.put(0, addr);
   }
 }
 
 // print current control settings
 void print_status() {
-  Serial.print("{\"time(min)\":"+String(((float)millis())/1000/60) + ",");
-  Serial.print("\"system_active\":"+String(system_active) + ",");
-  Serial.print("\"closed_loop_temp_control\":"+String(closedLoopControl) + ",");
-  Serial.print("\"density_reading\":"+String(get_OD()) + ",");
-  Serial.print("\"purple_reading\":"+String(get_purple()) + ",");
-  Serial.print("\"temp_reading(oC)\":"+String(get_temp()) + ",");
-  Serial.print("\"raw_temp_reading\":"+String(analogRead(tempSensorPin)) + ",");
+  Serial.print("{\"time(min)\":"+String(time_double) + ",");
   Serial.print("\"heat_set\":"+String(heat_set) + ",");
   Serial.print("\"stir_set\":"+String(stir_set) + ",");
-  Serial.print("\"airpump_set\":"+String(air_set) + ",");
-  Serial.println("\"fan_set\":"+String(fan_set) + "}");
+  Serial.print("\"air_set\":"+String(air_set) + ",");
+  Serial.print("\"fan_set\":"+String(fan_set) + ",");
+  Serial.print("\"density\":"+String(od) + ",");
+  Serial.print("\"purpleness\":"+String(purple) + ",");
+  Serial.print("\"temp(C)\":"+String(real_temp(temp)) + ",");
+  Serial.print("\"system_active\":"+String(system_active) + ",");
+  Serial.println("\"closedloop_temp\":"+String(closedLoopControl) + "}");
+
+  ESPserial.print("{\"time(min)\":"+String(time_double) + ",");
+  ESPserial.print("\"heat_set\":"+String(heat_set) + ",");
+  ESPserial.print("\"stir_set\":"+String(stir_set) + ",");
+  ESPserial.print("\"air_set\":"+String(air_set) + ",");
+  ESPserial.print("\"fan_set\":"+String(fan_set) + ",");
+  ESPserial.print("\"density\":"+String(od) + ",");
+  ESPserial.print("\"purpleness\":"+String(purple) + ",");
+  ESPserial.print("\"temp(C)\":"+String(real_temp(temp)) + ",");
+  ESPserial.print("\"system_active\":"+String(system_active) + ",");
+  ESPserial.println("\"closedloop_temp\":"+String(closedLoopControl) + "}");
 }
 
 // set all outputs to LOW
 void pause() {
-  stir_set = 0;
-  heat_set = 0;
-  air_set = 0;
-  fan_set = 0;
-  closedLoopControl = false;
   analogWrite(stirPin, 0);
   analogWrite(peltierPin, 0);
   analogWrite(airPin, 0);
@@ -274,6 +342,13 @@ void pause() {
 void flushSerial() {
   while (Serial.available()) {
     Serial.read();
+  }
+}
+
+// flush any ESPserial input
+void flushESPserial() {
+  while (ESPserial.available()) {
+    ESPserial.read();
   }
 }
 
@@ -316,19 +391,13 @@ bool button_press() {
 }
 
 int get_OD() {
-  if (update_OD) {
-    update_OD = false;
-    OD = readPT(LEDred, PTred);
-  }
-  return OD;
+  // Return integer (0 to 1023) of red brightness
+  return readPT(LEDred, PTred);
 }
 
 int get_purple() {
-  if (update_purple) {
-    update_purple = false;
-    purple = readPT(LEDgreen, PTgreen);
-  }
-  return purple;
+  // Return integer (0 to 1023) of purple brightness
+  return readPT(LEDgreen, PTgreen);
 }
 
 // briefly turn on LED and measure amplified phototransistor output
@@ -341,22 +410,32 @@ int readPT(int LEDpin, int PTpin) {
   return brightness;
 }
 
-double get_temp() {
-  int raw_temp = analogRead(tempSensorPin);
-  return ((double) raw_temp - 18.2)/9.15;
+double real_temp(int raw_temp) {
+  return ((double) raw_temp - 18.2) / 9.15;
 }
 
+int get_temp() {
+  return analogRead(tempSensorPin);
+}
+
+/*
+ * Automatically adjust stir, heat, and fan settings.
+ * Overwrites existing settings.
+ */
 void control_temp() {
   double new_set = PELTIER_SETPOINT + (37.0 - get_temp()) * PELTIER_PROP_PARAM;
 
   // create new set points
-  heat_set = (int)(new_set);
-  heat_set = max(min(heat_set,TEMP_MAX),0);
-  fan_set = 255;
-  stir_set= max(stir_set, 80);
+  heat_set = (byte) new_set;
+  heat_set = max(min(heat_set, HEAT_MAX), 0);
+  fan_set  = 255;
+  stir_set = max(stir_set, 80);
 
   // write new setpoints to Peltier and fan
   analogWrite(stirPin, stir_set);
   analogWrite(peltierPin, heat_set);
   analogWrite(fanPin, fan_set);
 }
+
+
+

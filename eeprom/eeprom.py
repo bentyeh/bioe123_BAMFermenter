@@ -64,6 +64,7 @@ def main(port, baud_rate, filename=None):
 
     # convert data to numpy array
     data = np.array(data)
+    print(data)
     time = data[:,0]
     num_vars = data.shape[1] - 1
 

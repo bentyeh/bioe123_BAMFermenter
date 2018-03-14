@@ -8,15 +8,21 @@ byte heat_set;
 byte stir_set;
 byte air_set;
 byte fan_set;
-byte od;
-byte purple;
-byte temp;
+int od;
+int purple;
+int temp;
 
 String START_FLAG = "start";
 String END_FLAG = "end";
 
-const int totalsize = sizeof(heat_set) + sizeof(stir_set) + sizeof(air_set) + sizeof(fan_set) + sizeof(od) + sizeof(purple) + sizeof(temp);
-const int int_mask = ( 1 << 8 ) - 1;
+const int totalsize = sizeof(time_min)
+                    + sizeof(heat_set)
+                    + sizeof(stir_set)
+                    + sizeof(air_set)
+                    + sizeof(fan_set)
+                    + sizeof(od)
+                    + sizeof(purple)
+                    + sizeof(temp);
 
 void setup() {
   // initialize serial
@@ -34,6 +40,7 @@ void setup() {
   }*/
 
   EEPROM.get(0, lastaddr);
+  lastaddr = min(lastaddr, EEPROM.length());
 }
 
 void loop() {
@@ -41,9 +48,7 @@ void loop() {
   int addr = sizeof(lastaddr);
   Serial.println(lastaddr);
 
-  int od_decode;
-  int purple_decode;
-  float temp_decode;
+  float real_temp;
 
   // print start flag
   Serial.println(START_FLAG);
@@ -56,7 +61,7 @@ void loop() {
   Serial.print("fan, ");
   Serial.print("od, ");
   Serial.print("purple, ");
-  Serial.println("temp, ");
+  Serial.println("temp");
 
 
   // loop until reading last value
@@ -79,21 +84,21 @@ void loop() {
     EEPROM.get(addr, temp);
     addr += sizeof(temp);
 
-    od_decode = od << 2;
-    purple_decode = purple << 2;
-    temp_decode = (float) temp/10.0 + 37.0;
-
     // print values
     Serial.print(time_min); Serial.print(" ");
     Serial.print(heat_set); Serial.print(" ");
     Serial.print(stir_set); Serial.print(" ");
     Serial.print(air_set); Serial.print(" ");
     Serial.print(fan_set); Serial.print(" ");
-    Serial.print(od_decode); Serial.print(" ");
-    Serial.print(purple_decode); Serial.print(" ");
-    Serial.print(temp_decode); Serial.println(" ");
+    Serial.print(od); Serial.print(" ");
+    Serial.print(purple); Serial.print(" ");
+    Serial.print(realtemp(temp)); Serial.println(" ");
   }
 
   // print end flag
   Serial.println(END_FLAG);
+}
+
+double realtemp(int raw_temp) {
+  return ((double) raw_temp - 18.2) / 9.15;
 }
