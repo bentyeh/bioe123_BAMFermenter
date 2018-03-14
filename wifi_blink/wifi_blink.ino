@@ -9,16 +9,16 @@
 
 // Below you will need to use your own WIFI informaiton.
 //2
-const char* ssid = "WINDOWS-ISUKM8T 0385"; //"AndroidAP_8347"; //WIFI Name, WeMo will only connect to a 2.4GHz network.
-const char* password = "4)719p4J"; //"bamfbamf"; //WIFI Password
+const char* ssid = "Stanford Residences"; // "WINDOWS-ISUKM8T 0385"; //"AndroidAP_8347"; //WIFI Name, WeMo will only connect to a 2.4GHz network.
+const char* password = ""; //"bamfbamf"; //WIFI Password
 
 //defining the pin and setting up the "server"
 //3
 int relayPin = BUILTIN_LED;//D1; // The Shield uses pin 1 for the relay
 WiFiServer server(80);
-IPAddress ip(10, 0, 0, 69); // where xx is the desired IP Address
-IPAddress gateway(10, 0, 0, 1); // set gateway to match your network
-IPAddress subnet(255, 255, 255, 0); // set subnet mask to match your network
+IPAddress ip(128, 12, 8, 41); // where xx is the desired IP Address
+IPAddress gateway(10, 31, 240, 1); // set gateway to match your network
+IPAddress subnet(255, 255, 240, 0); // set subnet mask to match your network
 int i = 0; 
 
 // void setup is where we initialize variables, pin modes, start using libraries, etc. 
@@ -65,13 +65,13 @@ void setup() {
   Serial.print("http://");
   Serial.print(WiFi.localIP());
   Serial.println("/"); 
+  Serial.print("MAC address: ");
+  Serial.println(WiFi.macAddress());
 }
 
 //void loop is where you put all your code. it is a funtion that returns nothing and will repeat over and over again
 //6
 void loop() {
-  SPI
-  SPI.print(i++);
   // Check if a client has connected
   WiFiClient client = server.available();
   if (!client) {
