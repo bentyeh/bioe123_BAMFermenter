@@ -1,18 +1,22 @@
+#include <WebSocketsServer.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
-#include <WebSocketsServer.h>
 
-const char* ssid = "Stanford"; //WIFI Name, WeMo will only connect to a 2.4GHz network.
+int testPin = BUILTIN_LED;//D1; // The Shield uses pin 1 for the relay
+
+// WiFi network information
+const char* ssid = "Stanford"; // must be a 2.4GHz network
 const char* password = "";
+//WiFiServer server(80);
+IPAddress ip(128, 12, 8, 41);
+IPAddress dns(171, 67, 1, 234);
+IPAddress gateway(10, 31, 240, 1);
+IPAddress subnet(255, 255, 240, 0);
 
-int relayPin = BUILTIN_LED;//D1; // The Shield uses pin 1 for the relay
-ESP8266WebServer server(80);
-
-IPAddress ip(10, 0, 0, 69); // where xx is the desired IP Address
-IPAddress gateway(10, 0, 0, 1); // set gateway to match your network
-IPAddress subnet(255, 255, 255, 0); // set subnet mask to match your network
-
+//Web Sockets Setup
+ESP8266WebServer server(80);       // create a web server on port 80
+WebSocketsServer webSocket = WebSocketsServer(81);    // create a websocket server on port 81
 
 void setup() {
   Serial.begin(9600);        // Start the Serial communication to send messages to the computer
@@ -20,9 +24,9 @@ void setup() {
   Serial.print("Hello world!");
 
   startWiFi();
-  startSPIFFS();	// Start the SPIFFS and list all contents
-  startWebSocket();	// Start a WebSocket server
-  startServer();	// Start a HTTP server with a file read handler and an upload handler
+  startSPIFFS();  // Start the SPIFFS and list all contents
+  startWebSocket(); // Start a WebSocket server
+  startServer();  // Start a HTTP server with a file read handler and an upload handler
   
 }
 
@@ -47,12 +51,12 @@ void startWiFi() {
   Serial.println("WiFi connected");
 }
 
-void startSPIFFS() {	// Start the SPIFFS and list all contents
-  SPIFFS.begin();	// Start the SPI Flash File System (SPIFFS)
+void startSPIFFS() {  // Start the SPIFFS and list all contents
+  SPIFFS.begin(); // Start the SPI Flash File System (SPIFFS)
   Serial.println("SPIFFS started. Contents:");
   {
     Dir dir = SPIFFS.openDir("/");
-    while (dir.next()) {	// List the file system contents
+    while (dir.next()) {  // List the file system contents
       String fileName = dir.fileName();
       size_t fileSize = dir.fileSize();
       Serial.printf("\tFS File: %s, size: %s\r\n", fileName.c_str(), formatBytes(fileSize).c_str());
@@ -62,8 +66,8 @@ void startSPIFFS() {	// Start the SPIFFS and list all contents
 }
 
 void startWebSocket() { // Start a WebSocket server
-  webSocket.begin();	// start the websocket server
-  webSocket.onEvent(webSocketEvent);	// if there's an incoming websocket message, go to function 'webSocketEvent'
+  webSocket.begin();  // start the websocket server
+  webSocket.onEvent(webSocketEvent);  // if there's an incoming websocket message, go to function 'webSocketEvent'
   Serial.println("WebSocket server started.");
 }
 
@@ -105,7 +109,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
     case WStype_CONNECTED: {              // if a new websocket connection is established
         IPAddress ip = webSocket.remoteIP(num);
         Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
-        rainbow = false;                  // Turn rainbow off when a new connection is established
       }
       break;
     case WStype_TEXT:                     // if new text data is received
@@ -116,13 +119,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         int g = ((rgb >> 10) & 0x3FF);                     // G: bits 10-19
         int b =          rgb & 0x3FF;                      // B: bits  0-9
 
-        analogWrite(LED_RED,   r);                         // write it to the LED output pins
-        analogWrite(LED_GREEN, g);
-        analogWrite(LED_BLUE,  b);
       } else if (payload[0] == 'R') {                      // the browser sends an R when the rainbow effect is enabled
-        rainbow = true;
       } else if (payload[0] == 'N') {                      // the browser sends an N when the rainbow effect is disabled
-        rainbow = false;
       }
       break;
   }
@@ -154,3 +152,24 @@ String getContentType(String filename){
   else if(filename.endsWith(".gz")) return "application/x-gzip";
   return "text/plain";
 }
+
+
+//#include <SoftwareSerial.h>
+//SoftwareSerial ESPserial(2, 4); // Rx, Tx pins
+//
+//void setup() {
+//    Serial.begin(9600);
+//    ESPserial.begin(9600);
+//}
+// 
+//void loop() {
+//    // Arduino --> write to serial
+//    if (ESPserial.available()) {
+//        Serial.write(ESPserial.read());
+//    }
+// 
+//    // serial user input --> Arduino
+//    if (Serial.available()) {
+//        ESPserial.write(Serial.read());
+//    }
+//}
