@@ -4,8 +4,7 @@
 #include <FS.h>
 #include <SoftwareSerial.h>
 
-my_dat = {'OD': 0, 'purple': 0, 'fan_set': 0, 'air_set': 0, 'stir_set':0, 'heat_set':0, 'closed_loop':0, 'temp':0.0};
-
+char update[50];
 int testPin = BUILTIN_LED;//D1; // The Shield uses pin 1 for the relay
 SoftwareSerial ESPserial(2, 4); // Rx, Tx pins
 
@@ -39,8 +38,18 @@ void loop() {
   webSocket.loop();                           // constantly check for websocket events
   server.handleClient();                      // run the server
   if (ESPserial.available()) {
-    ESPserial.read();
+    handleSerial();
   }
+}
+
+void handleSerial() {
+  size_t idx = 0;
+  while (ESPserial.available()) {
+    update[idx] = ESPserial.read();
+    idx += 1;
+  }
+  update[idx] = '\0';
+  webSocket.broadcastTXT(update, idx);
 }
 
 
