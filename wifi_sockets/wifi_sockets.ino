@@ -1,71 +1,91 @@
-#include <WebSocketsServer.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <WebSocketsServer.h>
 #include <FS.h>
 #include <SoftwareSerial.h>
+SoftwareSerial ESPserial(2, 4);
 
-char update[50];
-int testPin = BUILTIN_LED;//D1; // The Shield uses pin 1 for the relay
-SoftwareSerial ESPserial(2, 4); // Rx, Tx pins
+const char* ssid = "Stanford"; //"Stanford"; //WIFI Name, WeMo will only connect to a 2.4GHz network.
+const char* password = ""; //"";
+const int BUFFER_SIZE = 300;
 
+char updater[BUFFER_SIZE];
 
-// WiFi network information
-const char* ssid = "Stanford"; // must be a 2.4GHz network
-const char* password = "";
-IPAddress ip(128, 12, 8, 41);
-IPAddress dns(171, 67, 1, 234);
-IPAddress gateway(10, 31, 240, 1);
-IPAddress subnet(255, 255, 240, 0);
+int relayPin = BUILTIN_LED;//D1; // The Shield uses pin 1 for the relay
+ESP8266WebServer server(80);
+WebSocketsServer webSocket = WebSocketsServer(81);
 
-//Web Sockets Setup
-ESP8266WebServer server(80);       // create a web server on port 80
-WebSocketsServer webSocket = WebSocketsServer(81);    // create a websocket server on port 81
+IPAddress ip(10, 0, 0, 69); // where xx is the desired IP Address
+IPAddress gateway(10, 0, 0, 1); // set gateway to match your network
+IPAddress subnet(255, 255, 255, 0); // set subnet mask to match your network
 
 void setup() {
-  Serial.begin(9600);        // Start the Serial communication to send messages to the computer
+  Serial.begin(9600);
   ESPserial.begin(9600);
-  delay(10);
   Serial.print("Hello world!");
 
-  startWiFi();
-  startSPIFFS();  // Start the SPIFFS and list all contents
-  startWebSocket(); // Start a WebSocket server
-  startServer();  // Start a HTTP server with a file read handler and an upload handler
-  
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, LOW);
+
+  setup_wifi();
+  server.onNotFound(handleNotFound);
+  server.begin();
+  Serial.println("Server started");
+
+  // Print the IP address
+  Serial.print("Use this URL : ");
+  Serial.print("http://");
+  Serial.print(WiFi.localIP());
+  Serial.println("/");
+  Serial.print("MAC: ");
+  Serial.println(WiFi.macAddress());
+  startSPIFFS();
+  startWebSocket();
 }
 
-void loop() {
-  webSocket.loop();                           // constantly check for websocket events
-  server.handleClient();                      // run the server
-  if (ESPserial.available()) {
-    handleSerial();
-  }
+void startWebSocket() { // Start a WebSocket server
+  webSocket.begin();  // start the websocket server
+  webSocket.onEvent(webSocketEvent);  // if there's an incoming websocket message, go to function 'webSocketEvent'
+  Serial.println("WebSocket server started.");
 }
 
-void handleSerial() {
-  size_t idx = 0;
-  while (ESPserial.available()) {
-    update[idx] = ESPserial.read();
-    idx += 1;
-  }
-  update[idx] = '\0';
-  webSocket.broadcastTXT(update, idx);
-}
-
-
-void startWiFi() {
+void setup_wifi() {
+  // Configure WiFi shield and connect to WiFi network
   Serial.print("Setting static ip to : ");
   Serial.println(ip);
   Serial.print("Connecting to ");
   Serial.println(ssid);
   // WiFi.config(ip, dns, gateway, subnet); 
   WiFi.begin(ssid, password);
+  //Trying to connect it will display dots
   while (WiFi.status() != WL_CONNECTED) {
-    delay(10);
+    delay(100);
     Serial.print(".");
   }
   Serial.println("");
   Serial.println("WiFi connected");
+}
+
+void loop(void){
+  //Arduino --> write to serial
+  if (ESPserial.available()) {
+    size_t idx = 0;
+    while (ESPserial.available() && idx < BUFFER_SIZE) {
+      updater[idx] = ESPserial.read();
+      Serial.print(updater[idx]);
+      idx += 1;
+    }
+    updater[idx] = '\0';
+    Serial.println(updater);
+    // webSocket.broadcastTXT(String(updater));
+     delay(15);
+  }
+  server.handleClient();                    // Listen for HTTP requests from clients
+  webSocket.loop();
+   // serial user input --> Arduino
+//   if (Serial.available()) {
+//       ESPserial.write(Serial.read());
+//   }
 }
 
 void startSPIFFS() {  // Start the SPIFFS and list all contents
@@ -82,10 +102,14 @@ void startSPIFFS() {  // Start the SPIFFS and list all contents
   }
 }
 
-void startWebSocket() { // Start a WebSocket server
-  webSocket.begin();  // start the websocket server
-  webSocket.onEvent(webSocketEvent);  // if there's an incoming websocket message, go to function 'webSocketEvent'
-  Serial.println("WebSocket server started.");
+String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
+  if (bytes < 1024) {
+    return String(bytes) + "B";
+  } else if (bytes < (1024 * 1024)) {
+    return String(bytes / 1024.0) + "KB";
+  } else if (bytes < (1024 * 1024 * 1024)) {
+    return String(bytes / 1024.0 / 1024.0) + "MB";
+  }
 }
 
 void startServer() {
@@ -118,34 +142,6 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
   return false;
 }
 
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) { // When a WebSocket message is received
-  switch (type) {
-    case WStype_DISCONNECTED:             // if the websocket is disconnected
-      Serial.printf("[%u] Disconnected!\n", num);
-      break;
-    case WStype_CONNECTED: {              // if a new websocket connection is established
-        IPAddress ip = webSocket.remoteIP(num);
-        Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
-      }
-      break;
-    case WStype_TEXT:                     // if new text data is received
-      Serial.printf("[%u] get Text: %s\n", num, payload);
-      ESPserial.write(payload + '\n')
-      break;
-  }
-}
-
-String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
-  if (bytes < 1024) {
-    return String(bytes) + "B";
-  } else if (bytes < (1024 * 1024)) {
-    return String(bytes / 1024.0) + "KB";
-  } else if (bytes < (1024 * 1024 * 1024)) {
-    return String(bytes / 1024.0 / 1024.0) + "MB";
-  }
-}
-
-
 String getContentType(String filename){
   if(filename.endsWith(".htm")) return "text/html";
   else if(filename.endsWith(".html")) return "text/html";
@@ -163,3 +159,21 @@ String getContentType(String filename){
 }
 
 
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) { // When a WebSocket message is received
+  switch (type) {
+    case WStype_DISCONNECTED:             // if the websocket is disconnected
+      Serial.printf("[%u] Disconnected!\n", num);
+      break;
+    case WStype_CONNECTED: {              // if a new websocket connection is established
+        IPAddress ip = webSocket.remoteIP(num);
+        Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+      }
+      break;
+    case WStype_TEXT:                     // if new text data is received
+      Serial.printf("[%u] get Text: %s\n", num, payload);
+      ESPserial.println((char *) payload);
+//      payload = (char *) payload;
+//      ESPserial.write(payload + '\n');
+      break;
+  }
+}
