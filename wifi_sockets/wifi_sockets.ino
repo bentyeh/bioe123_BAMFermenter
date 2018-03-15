@@ -2,13 +2,17 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
+#include <SoftwareSerial.h>
+
+my_dat = {'OD': 0, 'purple': 0, 'fan_set': 0, 'air_set': 0, 'stir_set':0, 'heat_set':0, 'closed_loop':0, 'temp':0.0};
 
 int testPin = BUILTIN_LED;//D1; // The Shield uses pin 1 for the relay
+SoftwareSerial ESPserial(2, 4); // Rx, Tx pins
+
 
 // WiFi network information
 const char* ssid = "Stanford"; // must be a 2.4GHz network
 const char* password = "";
-//WiFiServer server(80);
 IPAddress ip(128, 12, 8, 41);
 IPAddress dns(171, 67, 1, 234);
 IPAddress gateway(10, 31, 240, 1);
@@ -20,6 +24,7 @@ WebSocketsServer webSocket = WebSocketsServer(81);    // create a websocket serv
 
 void setup() {
   Serial.begin(9600);        // Start the Serial communication to send messages to the computer
+  ESPserial.begin(9600);
   delay(10);
   Serial.print("Hello world!");
 
@@ -33,6 +38,9 @@ void setup() {
 void loop() {
   webSocket.loop();                           // constantly check for websocket events
   server.handleClient();                      // run the server
+  if (ESPserial.available()) {
+    ESPserial.read();
+  }
 }
 
 
@@ -113,15 +121,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       break;
     case WStype_TEXT:                     // if new text data is received
       Serial.printf("[%u] get Text: %s\n", num, payload);
-      if (payload[0] == '#') {            // we get RGB data
-        uint32_t rgb = (uint32_t) strtol((const char *) &payload[1], NULL, 16);   // decode rgb data
-        int r = ((rgb >> 20) & 0x3FF);                     // 10 bits per color, so R: bits 20-29
-        int g = ((rgb >> 10) & 0x3FF);                     // G: bits 10-19
-        int b =          rgb & 0x3FF;                      // B: bits  0-9
-
-      } else if (payload[0] == 'R') {                      // the browser sends an R when the rainbow effect is enabled
-      } else if (payload[0] == 'N') {                      // the browser sends an N when the rainbow effect is disabled
-      }
+      ESPserial.write(payload + '\n')
       break;
   }
 }
@@ -154,22 +154,3 @@ String getContentType(String filename){
 }
 
 
-//#include <SoftwareSerial.h>
-//SoftwareSerial ESPserial(2, 4); // Rx, Tx pins
-//
-//void setup() {
-//    Serial.begin(9600);
-//    ESPserial.begin(9600);
-//}
-// 
-//void loop() {
-//    // Arduino --> write to serial
-//    if (ESPserial.available()) {
-//        Serial.write(ESPserial.read());
-//    }
-// 
-//    // serial user input --> Arduino
-//    if (Serial.available()) {
-//        ESPserial.write(Serial.read());
-//    }
-//}

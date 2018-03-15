@@ -1,7 +1,7 @@
 sensor_data = [{y:0, label: 'OD'}, {y:0, label: 'Purpleness'}]
 effector_data = [{y:0, label: 'Stir'}, {y:0, label: 'Air'}, {y:0, label: 'Fan'}, {y:0, label: 'Peltier'}]
 temp_data = [{y:0, label: 'Temp'}]
-closed_loop = true;
+closed_loop = false;
 
 window.onload = function () {
 
@@ -87,7 +87,7 @@ function changeStirSet () {
 }
 
 function changeAirSet () {
-  change_label('air_slider', 'air_st');
+  change_label('air_slider', 'air_set');
   var signal = 'a'+document.getElementById('air_slider').toString();
   console.log(signal);
   connection.send(signal);
@@ -114,6 +114,9 @@ function change_label(slider, label) {
 
 function activate_closed_loop() {
   closed_loop = !closed_loop;
+  peltier_button();
+}
+function peltier_button() {
   if (closed_loop) {
     document.getElementById('heat_slider').className = 'disabled';
     document.getElementById('heat_slider').disabled = true;
@@ -122,6 +125,7 @@ function activate_closed_loop() {
     document.getElementById('heat_slider').disabled = false;
   }
 }
+peltier_button();
 
 // function rainbowEffect () {
 //   rainbowEnable = ! rainbowEnable;
