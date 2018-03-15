@@ -65,14 +65,14 @@ connection.onerror = function (error) {
 connection.onmessage = function (e) {
   console.log('Server: ', e.data);
   document.getElementById('dat_json').innerHTML = e.data;
-  var msg = JSON.parse(e.data);
-  sensor_data[0].y = msg['density'];
-  sensor_data[1].y = msg['purpleness'];
-  effector_data[0].y = msg['stir_set'];
-  effector_data[1].y = msg['air_set'];
-  effector_data[2].y = msg['fan_set'];
-  effector_data[3].y = msg['heat_set'];
-  temp_data[0].y = msg['temp(C)'];
+  // var msg = JSON.parse(e.data);
+  // sensor_data[0].y = msg.density;
+  // sensor_data[1].y = msg.purpleness;
+  // effector_data[0].y = msg.stir_set;
+  // effector_data[1].y = msg.air_set;
+  // effector_data[2].y = msg.fan_set;
+  // effector_data[3].y = msg.heat_set;
+  // temp_data[0].y = msg.tempC;
 };
 
 connection.onclose = function () {
