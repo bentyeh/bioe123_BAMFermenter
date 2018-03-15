@@ -147,7 +147,6 @@ void loop() {
 
     // save values to EEPROM
     if (millis() > nextWrite) {
-      ESPserial.println("writing to EEPROM");
       nextWrite += UPDATE_INTERVAL;
       write_local();
     }
@@ -220,7 +219,6 @@ void read_serial() {
 
 void read_ESPserial() {
   byte mode = ESPserial.read(); // read first byte (one character) from serial
-  Serial.println(mode);
   int value = 0;
   int curbyte;
   bool isnumber = false;
@@ -251,7 +249,7 @@ void read_ESPserial() {
       flushESPserial();
       return;
   }
-  Serial.println(value);
+
   switch(mode) {
     case 's': // stir
       stir_set = value;
