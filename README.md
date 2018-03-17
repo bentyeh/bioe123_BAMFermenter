@@ -35,6 +35,8 @@ Stanford BIOE 123: Biomedical System Prototyping Lab, Winter 2018
 
 The thermoelectric cooler should be [star grounded](http://www.analog.com/en/analog-dialogue/articles/staying-well-grounded.html) due to its large current draw (can exceed 1.5 A).
 
+The full circuit schematic can be [viewed here](#https://www.draw.io/?lightbox=1&highlight=0000ff&edit=_blank&layers=1&nav=1&title=Final%20Circuit%20Diagram#Uhttps%3A%2F%2Fdrive.google.com%2Fa%2Fstanford.edu%2Fuc%3Fid%3D1WjHtYc9cnAdtIySJ9L2i0wUa2gjvmvXV%26export%3Ddownload).
+
 ## Software
 ### fermenter_main
 **Description**: Control fermenter subsystems
