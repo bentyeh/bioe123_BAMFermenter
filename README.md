@@ -1,10 +1,10 @@
 # BAMFermenter
 
-Benjamin Yeh, Augustine Chemparathy, Michael Becich
+Benjamin Yeh, [Augustine Chemparathy](https://github.com/agchempa), [Michael Becich](https://github.com/michael-becich-28)
 
 Stanford BIOE 123: Biomedical System Prototyping Lab, Winter 2018
 
-Control and monitor our fermenter in realtime at [http://bamfermenter.stanford.edu/](http://bamfermenter.stanford.edu/)
+Control and monitor our fermenter live at [http://bamfermenter.stanford.edu/](http://bamfermenter.stanford.edu/)
 
 ## Fermenter Design
 
@@ -16,7 +16,7 @@ Control and monitor our fermenter in realtime at [http://bamfermenter.stanford.e
  - (1) [Wemos D1 mini](https://wiki.wemos.cc/products:d1:d1_mini)
  - (1) pushbutton
  - (4) N-channel MOSFETs ([IRFZ44N](https://www.jameco.com/Jameco/Products/ProdDS/669951IR.pdf))
-   - (Recommended) small heatsinks
+   - (Recommended) small heatsinks, especially for the MOSFET connected to the thermoelectric cooler
  - (2) quad op-amps ([LM324N](https://www.jameco.com/Jameco/Products/ProdDS/23683.pdf))    
  - (2) 0.001 uF capacitors
  - (2) 0.1 uF capacitors
@@ -126,6 +126,13 @@ Sample output:
    - Note: When uploading files using the plug-in, the Serial Monitor (or other serial connections to the device) must be closed.
  - (Optional) CH340G USB to UART Driver ([download](https://wiki.wemos.cc/downloads))
    - May or may not be necessary, depending on drivers already installed on your computer.
+
+**Hosted Website**
+HTTP Server (port 80): handles new clients and streams files (index.html and WebSocket.js) from the `/data` folder to clients
+WebSockets Server (port 81): handles data sent from client (browser) to ESP8266 chip
+ - Sends data over SoftwareSerial back to Arduino
+
+Plots are generated using [D3.js](https://d3js.org/).
 
 ### python_plots
 **Description**
