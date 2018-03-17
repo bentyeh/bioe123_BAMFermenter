@@ -1,5 +1,7 @@
 # BAMFermenter
+
 Benjamin Yeh, Augustine Chemparathy, Michael Becich
+
 Stanford BIOE 123: Biomedical System Prototyping Lab, Winter 2018
 
 ## Fermenter Design
@@ -28,7 +30,9 @@ Stanford BIOE 123: Biomedical System Prototyping Lab, Winter 2018
  - (1) heatsink with thermal tape ([ATS-55400D-C2-R0](https://www.qats.com/DataSheet/ATS-55400D-C1-R0))
 
 ### Circuit diagram
-[insert image here]
+
+![Circuit schematic](/images/circuit_schematic.png "Circuit schematic")
+
 The thermoelectric cooler should be [star grounded](http://www.analog.com/en/analog-dialogue/articles/staying-well-grounded.html) due to its large current draw (can exceed 1.5 A).
 
 ## Software
