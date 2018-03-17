@@ -1,54 +1,98 @@
 <!DOCTYPE HTML>
 <html>
 <head>
+  <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1">
+  <title>BAMFermenter</title>
   <link href='https://fonts.googleapis.com/css?family=Roboto:300' rel='stylesheet' type='text/css'>
   <style>
     body {
       font-family: 'Roboto', serif;
     }
+
+    .content {
+      max-width: 720px;
+      margin: auto;
+      display: table;
+      text-align: center;
+    }
+
+    .bar{
+      fill: steelblue;
+    }
+
+    .bar:hover{
+      fill: brown;
+    }
+
+    .axis {
+      font: 10px sans-serif;
+    }
+
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
   </style>
-<script src="WebSocket.js" type="text/javascript"></script>
+
+  <!-- custom JavaScript -->
+  <script src="WebSocket.js" type="text/javascript"></script>
+
+  <!-- D3.js data visualization JS library -->
+  <script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
+
+  <!-- Bootstrap CSS library -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+  <!-- Bootstrap JavaScript library -->
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 </head>
 
 <body>
-  <center>
-      <header>
-        <h1 style="color:DarkOrchid;">B.A.M.F.ermenter Control Panel</h1>
-      </header>
-      <div>
-        <table>
-          <tr>
-            <td style="width:14.4px; text-align: left">Stir: </td>
-            <td><input class="enabled" id="stir_slider" type="range" min="0" max="255" step="1" oninput="changeStirSet();" value="0"></td>
-            <td id="stir_set" style="width:14.4px; text-align: right">0</td>
-          </tr>
-          <tr>
-            <td style="width:14.4px; text-align: left">Air: </td>
-            <td><input class="enabled" id="air_slider" type="range" min="0" max="255" step="1" oninput="changeAirSet();" value="0"></td>
-            <td id="air_set" style="width:14.4px; text-align: right">0</td>
-          </tr>
-          <tr>
-            <td style="width:14.4px; text-align: left">Fan: </td>
-            <td><input class="enabled" id="fan_slider" type="range" min="0" max="255" step="1" oninput="changeFanSet();" value="0"></td>
-            <td id="fan_set" style="width:14.4px; text-align: right">0</td>
-          </tr>
-          <tr>
-            <td style="width:14.4px; text-align: left">Peltier: </td>
-            <td><input class="enabled" id="heat_slider" type="range" min="0" max="255" step="1" oninput="changeHeatSet();" value="0"></td>
-            <td id="heat_set" style="width:14.4px; text-align: right">0</td>
-          </tr>
-        </table>
-        <p id='dat_json'>Wow this didn't work</p>
-        <p style="margin:8px 0px">
-          <button id="closed_loop" class="button" onclick="activate_closed_loop();">Closed Loop</button>
-        </p>
-      </div>
-      <div id="sensorContainer" style="height: 100px; width: 20%;"></div>
-      <div id="effectorContainer" style="height: 100px; width: 20%;"></div>
-      <div id="tempContainer" style="height:100px; width: 20%;"></div>
-    </center>
-
-  <script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
-
+  <header class="content">
+    <h1 style="color: DarkOrchid">B.A.M.F.ermenter Control Panel</h1>
+  </header>
+  <table class="content">
+    <tr>
+      <td style="width: 14.4px; text-align: left; margin=2em">Peltier: </td>
+      <td><input class="enabled" id="heat_slider" type="range" min="0" max="255" step="1" onchange="changeHeatSet();" value="0"></td>
+      <td id="heat_set" style="width:14.4px; text-align: right">0</td>
+    </tr>
+    <tr>
+      <td style="width: 14.4px; text-align: left; margin=2em">Stir: </td>
+      <td><input class="enabled" id="stir_slider" type="range" min="0" max="255" step="1" onchange="changeStirSet();" value="0"></td>
+      <td id="stir_set" style="width:14.4px; text-align: right">0</td>
+    </tr>
+    <tr>
+      <td style="width: 14.4px; text-align: left; margin=2em">Air: </td>
+      <td><input class="enabled" id="air_slider" type="range" min="0" max="255" step="1" onchange="changeAirSet();" value="0"></td>
+      <td id="air_set" style="width:14.4px; text-align: right">0</td>
+    </tr>
+    <tr>
+      <td style="width: 14.4px; text-align: left; margin=2em">Fan: </td>
+      <td><input class="enabled" id="fan_slider" type="range" min="0" max="255" step="1" onchange="changeFanSet();" value="0"></td>
+      <td id="fan_set" style="width:14.4px; text-align: right">0</td>
+    </tr>
+  </table>
+  <p style="margin: auto" class="content">
+    <button id="closed_loop" class="button" onclick="activate_closed_loop()">Closed Loop</button>
+  </p>
+  <p style="margin: auto" class="content">
+    <button id="pause" class="button" onclick="pause_resume()">Pause</button>
+  </p>
+  <div class="container">
+    <div id="sensor" class="col-md-4"></div>
+    <div id="temp" class="col-md-4"></div>
+    <div id="output" class="col-md-4"></div>
+  </div>
+  <br><br>
+  <p id='dat_json' class="content">Raw Data</p>
+  <br><br>
+  <footer class="content">
+    <p>BIOE 123: Biomedical System Prototyping Lab, Winter 2018</p>
+    <p>BAMFermenter: Benjamin Yeh, Augustine Chemparathy, Michael Becich</p>
+    <p>Code available on <a href="https://github.com/bentyeh/bioe123_BAMFermenter">GitHub</a>.</p>
+  </footer> 
 </body>
 </html>
