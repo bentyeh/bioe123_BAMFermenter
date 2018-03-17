@@ -128,6 +128,7 @@ Sample output:
    - May or may not be necessary, depending on drivers already installed on your computer.
 
 **Hosted Website**
+
 HTTP Server (port 80): handles new clients and streams files (index.html and WebSocket.js) from the `/data` folder to clients
 WebSockets Server (port 81): handles data sent from client (browser) to ESP8266 chip
  - Sends data over SoftwareSerial back to Arduino
