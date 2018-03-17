@@ -4,6 +4,8 @@ Benjamin Yeh, Augustine Chemparathy, Michael Becich
 
 Stanford BIOE 123: Biomedical System Prototyping Lab, Winter 2018
 
+Control and monitor our fermenter in realtime at [http://bamfermenter.stanford.edu/](http://bamfermenter.stanford.edu/)
+
 ## Fermenter Design
 
 ### Parts
@@ -35,7 +37,7 @@ Stanford BIOE 123: Biomedical System Prototyping Lab, Winter 2018
 
 The thermoelectric cooler should be [star grounded](http://www.analog.com/en/analog-dialogue/articles/staying-well-grounded.html) due to its large current draw (can exceed 1.5 A).
 
-The full circuit schematic can be [viewed here](#https://www.draw.io/?lightbox=1&highlight=0000ff&edit=_blank&layers=1&nav=1&title=Final%20Circuit%20Diagram#Uhttps%3A%2F%2Fdrive.google.com%2Fa%2Fstanford.edu%2Fuc%3Fid%3D1WjHtYc9cnAdtIySJ9L2i0wUa2gjvmvXV%26export%3Ddownload).
+The full circuit schematic can be [viewed here](https://www.draw.io/?lightbox=1&highlight=0000ff&edit=_blank&layers=1&nav=1&title=Final%20Circuit%20Diagram#Uhttps%3A%2F%2Fdrive.google.com%2Fa%2Fstanford.edu%2Fuc%3Fid%3D1WjHtYc9cnAdtIySJ9L2i0wUa2gjvmvXV%26export%3Ddownload).
 
 ## Software
 ### fermenter_main
@@ -174,8 +176,8 @@ Windows: `flash.bat PORT`
  - Example: `flash.bat COM10`
 
 **References**
- - Tutorial: [https://wiki.wemos.cc/tutorials:get_started:revert_to_at_firmware](#https://wiki.wemos.cc/tutorials:get_started:revert_to_at_firmware)
- - Serial support on WSL: [https://blogs.msdn.microsoft.com/wsl/2017/04/14/serial-support-on-the-windows-subsystem-for-linux/](#https://blogs.msdn.microsoft.com/wsl/2017/04/14/serial-support-on-the-windows-subsystem-for-linux/)
+ - Tutorial: [https://wiki.wemos.cc/tutorials:get_started:revert_to_at_firmware](https://wiki.wemos.cc/tutorials:get_started:revert_to_at_firmware)
+ - Serial support on WSL: [https://blogs.msdn.microsoft.com/wsl/2017/04/14/serial-support-on-the-windows-subsystem-for-linux/](https://blogs.msdn.microsoft.com/wsl/2017/04/14/serial-support-on-the-windows-subsystem-for-linux/)
  - Binaries / original firmware for Wemos D1 mini: [https://github.com/espressif/ESP8266_NONOS_SDK](https://github.com/espressif/ESP8266_NONOS_SDK)
 
 ## Other Troubleshooting
@@ -202,7 +204,7 @@ Notes
  - This solution is based on the observation that the computer briefly recognizes the Arduino when it is first connected, but the connection drops after a short period of time. The goal is to reset the Arduino during that interval.
 
 References
-- [https://stackoverflow.com/questions/5290428/how-to-reset-an-arduino-board](#https://stackoverflow.com/questions/5290428/how-to-reset-an-arduino-board)
+- [https://stackoverflow.com/questions/5290428/how-to-reset-an-arduino-board](https://stackoverflow.com/questions/5290428/how-to-reset-an-arduino-board)
 
 **Arduino Micro pins**
 Not all pins are created equal.
@@ -212,10 +214,10 @@ Not all pins are created equal.
 
 References
 - Own measurements over an oscilloscope
-- [https://www.arduino.cc/en/Reference/SoftwareSerial](#https://www.arduino.cc/en/Reference/SoftwareSerial)
+- [https://www.arduino.cc/en/Reference/SoftwareSerial](https://www.arduino.cc/en/Reference/SoftwareSerial)
 
 ## References
 
 ### Useful Tutorials / Guides / Forums
- - Assortment of ESP8266 Tutorials: https://techtutorialsx.com/category/esp8266/
- - General ESP8266 Troubleshooting: [https://arduino-esp8266.readthedocs.io/en/latest/faq/readme.html](#https://arduino-esp8266.readthedocs.io/en/latest/faq/readme.html)
+ - Assortment of ESP8266 Tutorials: [https://techtutorialsx.com/category/esp8266/](https://techtutorialsx.com/category/esp8266/)
+ - General ESP8266 Troubleshooting: [https://arduino-esp8266.readthedocs.io/en/latest/faq/readme.html](https://arduino-esp8266.readthedocs.io/en/latest/faq/readme.html)
