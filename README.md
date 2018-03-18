@@ -1,10 +1,24 @@
 # BAMFermenter
 
-Benjamin Yeh, [Augustine Chemparathy](https://github.com/agchempa), [Michael Becich](https://github.com/michael-becich-28)
+[Benjamin Yeh](https://github.com/bentyeh), [Augustine Chemparathy](https://github.com/agchempa), [Michael Becich](https://github.com/michael-becich-28)
 
 Stanford BIOE 123: Biomedical System Prototyping Lab, Winter 2018
 
 Control and monitor our fermenter live at [http://bamfermenter.stanford.edu/](http://bamfermenter.stanford.edu/)
+
+## Table of Contents
+ - [Fermenter Design](#fermenter-design)
+   - [Parts](#parts)
+   - [Circuit diagram](#circuit-diagram)
+ - [Software](#software)
+   - [fermenter_main](#fermenter_main)
+   - [fermenter_eeprom](#fermenter_eeprom)
+   - [esp8266_server](#esp8266_server)
+   - [python_plots](#python_plots)
+   - [esp8266_flash](#esp8266_flash)
+ - [Other Troubleshooting](#other-troubleshooting)
+ - [References](#references)
+   - [Useful Tutorials / Guides / Forums](#useful-tutorials--guides--forums)
 
 ## Fermenter Design
 
