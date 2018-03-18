@@ -7,6 +7,7 @@ Stanford BIOE 123: Biomedical System Prototyping Lab, Winter 2018
 Control and monitor our fermenter live at [http://bamfermenter.stanford.edu/](http://bamfermenter.stanford.edu/)
 
 ## Table of Contents
+
  - [Fermenter Design](#fermenter-design)
    - [Parts](#parts)
    - [Circuit diagram](#circuit-diagram)
@@ -210,6 +211,7 @@ Windows: `flash.bat PORT`
   - May need to try connecting or disconnecting GPIO0 (pin D3 on the Wemos D1 mini) from ground while reset button is pressed.
 
 **Reset Arduino**
+
 Problem: Arduino is not recognized by computer
  - ... and the problem is not the USB cable (some USB cables are charge-only and lack the pins/wires for data transfer)
  - ... nor the computer port (the computer recognizes other Arduinos on the same port)
